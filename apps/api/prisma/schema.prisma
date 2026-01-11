@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum NfcTagStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ExhibitionType {
+  ONE_TO_ONE
+  ONE_TO_MANY
+}
+
+enum ExhibitionVisibility {
+  DRAFT
+  PUBLIC
+}
+
+enum ExhibitionStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ViewerExhibitionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum ExhibitRenderMode {
+  BLOCKS
+  HTML
+}
+
+model NfcTag {
+  id               String          @id @default(cuid())
+  publicTagId      String          @unique
+  status           NfcTagStatus    @default(ACTIVE)
+  boundExhibitionId String?
+  boundExhibition  Exhibition?     @relation("NfcTagExhibition", fields: [boundExhibitionId], references: [id], onDelete: SetNull)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([publicTagId])
+  @@index([boundExhibitionId])
+}
+
+model Exhibition {
+  id          String              @id @default(cuid())
+  type        ExhibitionType
+  totalDays   Int
+  visibility  ExhibitionVisibility @default(DRAFT)
+  status      ExhibitionStatus    @default(ACTIVE)
+  curatorId   String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  nfcTags             NfcTag[]              @relation("NfcTagExhibition")
+  viewerExhibitionStates ViewerExhibitionState[]
+  exhibits            Exhibit[]
+
+  @@index([status])
+  @@index([visibility])
+}
+
+model ViewerProfile {
+  id          String          @id @default(cuid())
+  nickname    String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  sessions    ViewerSession[]
+  exhibitionStates ViewerExhibitionState[]
+}
+
+model ViewerSession {
+  id          String          @id @default(cuid())
+  viewerId    String
+  tokenHash   String          @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  viewer      ViewerProfile   @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@index([viewerId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+}
+
+model ViewerExhibitionState {
+  id            String                  @id @default(cuid())
+  viewerId      String
+  exhibitionId  String
+  status        ViewerExhibitionStatus  @default(ACTIVE)
+  activatedAt   DateTime?
+  pausedAt      DateTime?
+  lastDayIndex  Int                     @default(1)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  viewer        ViewerProfile           @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  exhibition    Exhibition              @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+
+  @@unique([viewerId, exhibitionId])
+  @@index([viewerId])
+  @@index([exhibitionId])
+}
+
+model Exhibit {
+  id            String            @id @default(cuid())
+  exhibitionId  String
+  dayIndex      Int
+  mode          ExhibitRenderMode
+  blocksJson    Json?
+  html          String?
+  css           String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  exhibition    Exhibition        @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+
+  @@unique([exhibitionId, dayIndex])
+  @@index([exhibitionId])
+  @@index([exhibitionId, dayIndex])
+}

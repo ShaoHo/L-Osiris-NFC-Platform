@@ -50,8 +50,50 @@ pnpm --filter @app/curator-admin-internal dev
 
 ## API Endpoints
 
+### Health
 - `GET /v1/health` - Health check endpoint
-- `GET /v1/viewer/entry/:publicTagId` - Get viewer entry by public tag ID
+
+### Viewer Flow (curl examples)
+
+1. **Claim a tag** - Create a viewer profile and session:
+```bash
+curl -X POST http://localhost:3001/v1/viewer/claim \
+  -H "Content-Type: application/json" \
+  -d '{"publicTagId": "tg_test123", "nickname": "Test User"}'
+```
+
+Response includes `sessionToken` - save this for subsequent requests.
+
+2. **Activate an exhibition**:
+```bash
+curl -X POST http://localhost:3001/v1/viewer/exhibitions/exh_test123/activate \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <sessionToken>" \
+  -d '{"mode": "RESTART"}'
+```
+
+3. **Get entry** (with auth):
+```bash
+curl http://localhost:3001/v1/viewer/entry/tg_test123 \
+  -H "Authorization: Bearer <sessionToken>"
+```
+
+Or without auth (returns requiresClaim):
+```bash
+curl http://localhost:3001/v1/viewer/entry/tg_test123
+```
+
+### Development
+
+**Seed test data** (development only):
+```bash
+curl -X POST http://localhost:3001/v1/dev/seed
+```
+
+This creates:
+- Exhibition `exh_test123`
+- NFC tag `tg_test123` bound to the exhibition
+- Placeholder exhibit for day 1
 
 ## Build
 
