@@ -1,0 +1,67 @@
+openapi: 3.0.3
+info:
+  title: L-Osiris NFC Platform - Internal API
+  version: 1.0.0
+  description: Internal API specification for L-Osiris NFC Platform
+
+servers:
+  - url: http://localhost:3001/v1/internal
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Internal health check endpoint
+      description: Returns the health status of the internal API
+      operationId: getInternalHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                  service:
+                    type: string
+                    example: internal
+
+components:
+  schemas:
+    EventEnvelope:
+      type: object
+      required:
+        - id
+        - type
+        - timestamp
+        - version
+        - payload
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique event identifier
+        type:
+          type: string
+          description: Event type identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp in ISO 8601 format
+        version:
+          type: string
+          description: Event schema version
+        payload:
+          type: object
+          description: Event-specific payload data
+        metadata:
+          type: object
+          description: Optional metadata about the event
