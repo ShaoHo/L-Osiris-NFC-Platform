@@ -11,6 +11,7 @@
     "clean": "turbo run clean"
   },
   "devDependencies": {
+    "prisma": "^7.2.0",
     "turbo": "^2.0.0",
     "typescript": "^5.3.3"
   },
@@ -18,5 +19,10 @@
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
   },
-  "packageManager": "pnpm@8.15.0"
+  "packageManager": "pnpm@8.15.0",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.2.0",
+    "dotenv": "^17.2.3",
+    "pg": "^8.16.3"
+  }
 }
