@@ -1,0 +1,48 @@
+name: 🐞 Bug Report
+description: Something is not working as expected
+title: "[Bug] "
+labels: ["bug"]
+assignees: []
+
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly
+      placeholder: |
+        When I call /v1/dev/seed, the server crashes...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: |
+        The seed endpoint should return 200 OK
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. pnpm start:dev
+        2. curl /v1/dev/seed
+        3. Error appears
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Error message
+      render: shell
+
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: Node v22 / macOS / Docker Desktop

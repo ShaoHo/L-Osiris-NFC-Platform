@@ -1,0 +1,26 @@
+name: 🧩 Task
+description: Engineering task or chore
+title: "[Task] "
+labels: ["task"]
+assignees: []
+
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: Task description
+      placeholder: |
+        Implement ViewerExhibitionState model and migration
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: Design approved
+        - label: Schema updated
+        - label: Migration tested
+        - label: API implemented
+        - label: Docs updated

@@ -1,0 +1,41 @@
+name: ✨ Feature Request
+description: Propose a new feature or enhancement
+title: "[Feature] "
+labels: ["feature"]
+assignees: []
+
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What problem does this feature address?
+      placeholder: |
+        Curators need a way to preview an exhibition before publishing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      placeholder: |
+        Add a preview mode in curator dashboard...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - API
+        - Database / Prisma
+        - Frontend (Next.js)
+        - Infra / DevOps
+        - Docs
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
