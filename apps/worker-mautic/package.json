@@ -5,10 +5,10 @@
   "description": "Mautic Integration Worker Service",
   "type": "module",
   "scripts": {
-    "dev": "node src/index.js",
     "build": "echo 'Build placeholder'",
     "lint": "echo 'Lint placeholder'",
-    "test": "echo 'Test placeholder'"
+    "test": "echo 'Test placeholder'",
+    "dev": "node src/index.js"
   },
   "dependencies": {},
   "devDependencies": {

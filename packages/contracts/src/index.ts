@@ -7,3 +7,11 @@
  */
 
 export const CONTRACTS_VERSION = '0.1.0';
+
+export const EVENT_TYPES = {
+  NFC_TAG_SCANNED: 'nfc.tag.scanned',
+  USER_CREATED: 'user.created',
+  USER_UPDATED: 'user.updated',
+  ENTRY_CREATED: 'entry.created',
+  ENTRY_UPDATED: 'entry.updated',
+} as const;

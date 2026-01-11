@@ -42,7 +42,7 @@ pnpm dev
 
 Run specific app:
 ```bash
-pnpm --filter @app/api dev
+pnpm --filter api start:dev
 pnpm --filter @app/worker-ai dev
 pnpm --filter @app/worker-mautic dev
 pnpm --filter @app/curator-admin-internal dev
