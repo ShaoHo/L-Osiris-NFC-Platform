@@ -4,7 +4,7 @@ import { AppService } from './app.service';
 import { HealthController } from './health.controller';
 import { ViewerController } from './viewer/viewer.controller';
 import { ViewerEntryController } from './viewer/viewer-entry.controller';
-import { DevSeedController } from './viewer/dev-seed.controller';
+import { DevController } from './dev/dev.controller';
 import { DatabaseModule } from './database/database.module';
 
 @Module({
@@ -14,7 +14,7 @@ import { DatabaseModule } from './database/database.module';
     HealthController,
     ViewerController,
     ViewerEntryController,
-    DevSeedController,
+    DevController,
   ],
   providers: [AppService],
 })
