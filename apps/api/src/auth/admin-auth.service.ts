@@ -1,17 +1,16 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { createHash, randomBytes, scrypt, timingSafeEqual } from 'crypto';
-import { promisify } from 'util';
+import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../database/prisma.service';
+import { PasswordService } from './password.service';
 
 const RESET_TOKEN_TTL_MS = 1000 * 60 * 60;
-const SCRYPT_KEY_LENGTH = 64;
-const SCRYPT_OPTIONS = { N: 16384, r: 8, p: 1 };
-
-const scryptAsync = promisify(scrypt);
 
 @Injectable()
 export class AdminAuthService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private passwordService: PasswordService,
+  ) {}
 
   async validateBasicAuth(
     authHeader: string,
@@ -59,6 +58,13 @@ export class AdminAuthService {
       return null;
     }
 
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastLoginAt: new Date(),
+      },
+    });
+
     return {
       user: { id: user.id, email: user.email },
       roleNames: user.roles.map((role) => role.role.name),
@@ -66,39 +72,11 @@ export class AdminAuthService {
   }
 
   async hashPassword(password: string): Promise<string> {
-    if (!password) {
-      throw new BadRequestException('Password is required');
-    }
-
-    const salt = randomBytes(16).toString('hex');
-    const derived = (await scryptAsync(
-      password,
-      salt,
-      SCRYPT_KEY_LENGTH,
-      SCRYPT_OPTIONS,
-    )) as Buffer;
-    return `scrypt$${salt}$${derived.toString('hex')}`;
+    return this.passwordService.hashPassword(password);
   }
 
   async verifyPassword(password: string, storedHash: string): Promise<boolean> {
-    const [scheme, salt, hash] = storedHash.split('$');
-    if (scheme !== 'scrypt' || !salt || !hash) {
-      return false;
-    }
-
-    const derived = (await scryptAsync(
-      password,
-      salt,
-      SCRYPT_KEY_LENGTH,
-      SCRYPT_OPTIONS,
-    )) as Buffer;
-    const storedBuffer = Buffer.from(hash, 'hex');
-
-    if (storedBuffer.length !== derived.length) {
-      return false;
-    }
-
-    return timingSafeEqual(storedBuffer, derived);
+    return this.passwordService.verifyPassword(password, storedHash);
   }
 
   async issuePasswordReset(email: string): Promise<string | null> {

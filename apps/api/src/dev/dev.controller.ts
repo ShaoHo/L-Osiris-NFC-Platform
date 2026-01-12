@@ -6,10 +6,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { PasswordService } from '../auth/password.service';
 
 @Controller('dev')
 export class DevController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private passwordService: PasswordService,
+  ) {}
 
   @Post('seed')
   @HttpCode(HttpStatus.OK)
@@ -22,14 +26,22 @@ export class DevController {
       throw new NotFoundException();
     }
 
+    const curatorPasswordHash = await this.passwordService.hashPassword(
+      'dev-curator-password',
+    );
+
     const curator = await this.prisma.curator.upsert({
       where: { id: 'curator_dev' },
       create: {
         id: 'curator_dev',
         name: 'Dev Curator',
+        email: 'dev-curator@example.com',
+        passwordHash: curatorPasswordHash,
       },
       update: {
         name: 'Dev Curator',
+        email: 'dev-curator@example.com',
+        passwordHash: curatorPasswordHash,
       },
     });
 

@@ -14,6 +14,8 @@ import { AdminAuthService } from './auth/admin-auth.service';
 import { AdminAuthGuard } from './auth/admin-auth.guard';
 import { ExhibitionDayContentAdminController } from './admin/exhibition-day-content.controller';
 import { AiGenerationModule } from './jobs/ai-generation.module';
+import { PasswordService } from './auth/password.service';
+import { CuratorAuthService } from './auth/curator-auth.service';
 
 @Module({
   imports: [DatabaseModule, SoftDeletePurgeModule, AiGenerationModule],
@@ -27,6 +29,13 @@ import { AiGenerationModule } from './jobs/ai-generation.module';
     AdminActionController,
     ExhibitionDayContentAdminController,
   ],
-  providers: [AppService, AccessGrantService, AdminAuthService, AdminAuthGuard],
+  providers: [
+    AppService,
+    AccessGrantService,
+    AdminAuthService,
+    AdminAuthGuard,
+    PasswordService,
+    CuratorAuthService,
+  ],
 })
 export class AppModule {}
