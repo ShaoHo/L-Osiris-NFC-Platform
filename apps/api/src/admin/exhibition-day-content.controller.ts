@@ -33,6 +33,27 @@ export class ExhibitionDayContentAdminController {
     private readonly aiGeneration: AiGenerationService,
   ) {}
 
+  private async loadVersion(exhibitionId: string) {
+    const exhibition = await this.prisma.exhibition.findUnique({
+      where: { id: exhibitionId },
+    });
+
+    if (!exhibition) {
+      throw new NotFoundException(`Exhibition not found: ${exhibitionId}`);
+    }
+
+    const version = await this.prisma.exhibitionVersion.findFirst({
+      where: { exhibitionId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!version) {
+      throw new NotFoundException(`Exhibition version not found: ${exhibitionId}`);
+    }
+
+    return { exhibition, version };
+  }
+
   @Post('drafts')
   @HttpCode(HttpStatus.ACCEPTED)
   async createDraft(
@@ -49,15 +70,9 @@ export class ExhibitionDayContentAdminController {
       throw new BadRequestException('prompt is required');
     }
 
-    const exhibition = await this.prisma.exhibition.findUnique({
-      where: { id: exhibitionId },
-    });
+    const { version } = await this.loadVersion(exhibitionId);
 
-    if (!exhibition) {
-      throw new NotFoundException(`Exhibition not found: ${exhibitionId}`);
-    }
-
-    if (dayIndex > exhibition.totalDays) {
+    if (dayIndex > version.totalDays) {
       throw new BadRequestException('dayIndex exceeds totalDays for exhibition');
     }
 
@@ -89,28 +104,22 @@ export class ExhibitionDayContentAdminController {
       throw new BadRequestException('dayIndex must be a positive integer');
     }
 
-    const exhibition = await this.prisma.exhibition.findUnique({
-      where: { id: exhibitionId },
-    });
+    const { version } = await this.loadVersion(exhibitionId);
 
-    if (!exhibition) {
-      throw new NotFoundException(`Exhibition not found: ${exhibitionId}`);
-    }
-
-    if (dayIndex > exhibition.totalDays) {
+    if (dayIndex > version.totalDays) {
       throw new BadRequestException('dayIndex exceeds totalDays for exhibition');
     }
 
     const content = await this.prisma.exhibitionDayContent.upsert({
       where: {
-        exhibitionId_dayIndex_status: {
-          exhibitionId,
+        versionId_dayIndex_status: {
+          versionId: version.id,
           dayIndex,
           status: 'DRAFT',
         },
       },
       create: {
-        exhibitionId,
+        versionId: version.id,
         dayIndex,
         status: 'DRAFT',
         html: dto.html ?? null,
@@ -126,7 +135,8 @@ export class ExhibitionDayContentAdminController {
 
     return {
       id: content.id,
-      exhibitionId: content.exhibitionId,
+      exhibitionId,
+      versionId: content.versionId,
       dayIndex: content.dayIndex,
       status: content.status,
       updatedAt: content.updatedAt,
@@ -144,22 +154,16 @@ export class ExhibitionDayContentAdminController {
       throw new BadRequestException('dayIndex must be a positive integer');
     }
 
-    const exhibition = await this.prisma.exhibition.findUnique({
-      where: { id: exhibitionId },
-    });
+    const { version } = await this.loadVersion(exhibitionId);
 
-    if (!exhibition) {
-      throw new NotFoundException(`Exhibition not found: ${exhibitionId}`);
-    }
-
-    if (dayIndex > exhibition.totalDays) {
+    if (dayIndex > version.totalDays) {
       throw new BadRequestException('dayIndex exceeds totalDays for exhibition');
     }
 
     const draft = await this.prisma.exhibitionDayContent.findUnique({
       where: {
-        exhibitionId_dayIndex_status: {
-          exhibitionId,
+        versionId_dayIndex_status: {
+          versionId: version.id,
           dayIndex,
           status: 'DRAFT',
         },
@@ -172,14 +176,14 @@ export class ExhibitionDayContentAdminController {
 
     const published = await this.prisma.exhibitionDayContent.upsert({
       where: {
-        exhibitionId_dayIndex_status: {
-          exhibitionId,
+        versionId_dayIndex_status: {
+          versionId: version.id,
           dayIndex,
           status: 'PUBLISHED',
         },
       },
       create: {
-        exhibitionId,
+        versionId: version.id,
         dayIndex,
         status: 'PUBLISHED',
         html: draft.html,
@@ -195,7 +199,8 @@ export class ExhibitionDayContentAdminController {
 
     return {
       id: published.id,
-      exhibitionId: published.exhibitionId,
+      exhibitionId,
+      versionId: published.versionId,
       dayIndex: published.dayIndex,
       status: published.status,
       updatedAt: published.updatedAt,

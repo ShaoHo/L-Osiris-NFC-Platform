@@ -170,7 +170,19 @@ export class ViewerEntryController {
     );
     const dayIndex = Math.min(resolvedTotalDays, daysSinceActivation + 1);
 
-    // Load Exhibit
+    const dayContent = await this.prisma.exhibitionDayContent.findUnique({
+      where: {
+        versionId_dayIndex_status: {
+          versionId: resolvedVersion.id,
+          dayIndex,
+          status: 'PUBLISHED',
+        },
+      },
+      include: {
+        assets: true,
+      },
+    });
+
     const exhibit = await this.prisma.exhibit.findUnique({
       where: {
         exhibitionId_dayIndex: {
@@ -182,7 +194,20 @@ export class ViewerEntryController {
 
     // Prepare render based on mode
     let render: any = null;
-    if (exhibit) {
+    if (dayContent) {
+      render = {
+        mode: 'HTML',
+        html: dayContent.html || '',
+        css: dayContent.css || '',
+        assetRefs: dayContent.assetRefs || null,
+        assets: dayContent.assets.map((asset) => ({
+          id: asset.id,
+          url: asset.assetUrl,
+          thumbnailUrl: asset.thumbnailUrl,
+          usageMetadata: asset.usageMetadata,
+        })),
+      };
+    } else if (exhibit) {
       if (exhibit.mode === 'BLOCKS') {
         render = {
           mode: 'BLOCKS',
