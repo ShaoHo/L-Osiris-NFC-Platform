@@ -17,6 +17,7 @@ import { AiGenerationModule } from './jobs/ai-generation.module';
 import { PasswordService } from './auth/password.service';
 import { CuratorAuthService } from './auth/curator-auth.service';
 import { MarketingOutboxModule } from './jobs/marketing-outbox.module';
+import { CuratorPolicyAdminController } from './admin/curator-policy.controller';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { MarketingOutboxModule } from './jobs/marketing-outbox.module';
     AccessGrantAdminController,
     AdminActionController,
     ExhibitionDayContentAdminController,
+    CuratorPolicyAdminController,
   ],
   providers: [
     AppService,

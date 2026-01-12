@@ -29,7 +29,18 @@ interface RevokeAccessGrantPayload {
   };
 }
 
-type AdminActionPayload = IssueAccessGrantPayload | RevokeAccessGrantPayload;
+interface UpdateCuratorPolicyPayload {
+  type: 'UPDATE_CURATOR_POLICY';
+  data: {
+    curatorId: string;
+    nfcScopePolicy: 'EXHIBITION_ONLY' | 'EXHIBITION_AND_GALLERY';
+  };
+}
+
+type AdminActionPayload =
+  | IssueAccessGrantPayload
+  | RevokeAccessGrantPayload
+  | UpdateCuratorPolicyPayload;
 
 @Controller('admin/actions')
 @UseGuards(AdminAuthGuard)
@@ -179,6 +190,53 @@ export class AdminActionController {
         expiresAt: grant.expiresAt,
         revokedAt: grant.revokedAt,
         createdAt: grant.createdAt,
+      };
+    }
+
+    if (payload.type === 'UPDATE_CURATOR_POLICY') {
+      const curator = await this.prisma.curator.findUnique({
+        where: { id: payload.data.curatorId },
+      });
+
+      if (!curator) {
+        throw new NotFoundException(
+          `Curator not found: ${payload.data.curatorId}`,
+        );
+      }
+
+      const policy = await this.prisma.curatorPolicy.upsert({
+        where: { curatorId: payload.data.curatorId },
+        create: {
+          curatorId: payload.data.curatorId,
+          nfcScopePolicy: payload.data.nfcScopePolicy,
+        },
+        update: {
+          nfcScopePolicy: payload.data.nfcScopePolicy,
+        },
+      });
+
+      await this.prisma.auditLog.create({
+        data: {
+          eventType: 'CURATOR_POLICY_UPDATED',
+          actor: action.requestedBy,
+          adminActionId: action.id,
+          entityType: 'CuratorPolicy',
+          entityId: policy.id,
+          payload: {
+            curatorId: policy.curatorId,
+            nfcScopePolicy: policy.nfcScopePolicy,
+            createdAt: policy.createdAt,
+            updatedAt: policy.updatedAt,
+          },
+        },
+      });
+
+      return {
+        id: policy.id,
+        curatorId: policy.curatorId,
+        nfcScopePolicy: policy.nfcScopePolicy,
+        createdAt: policy.createdAt,
+        updatedAt: policy.updatedAt,
       };
     }
 
