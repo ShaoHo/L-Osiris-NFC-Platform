@@ -165,10 +165,13 @@ export class ViewerEntryController {
 
     // Compute dayIndex
     const now = new Date();
-    const daysSinceActivation = Math.floor(
-      (now.getTime() - state.activatedAt.getTime()) / 86400000,
+    const daysSinceRunStart = Math.floor(
+      (now.getTime() - latestRun.startedAt.getTime()) / 86400000,
     );
-    const dayIndex = Math.min(resolvedTotalDays, daysSinceActivation + 1);
+    const dayIndex = Math.min(
+      resolvedTotalDays,
+      latestRun.restartFromDay + daysSinceRunStart,
+    );
 
     const dayContent = await this.prisma.exhibitionDayContent.findUnique({
       where: {
