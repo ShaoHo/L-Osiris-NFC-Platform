@@ -11,17 +11,21 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { ViewerAuthGuard } from '../auth/viewer-auth.guard';
-import { ViewerId } from '../auth/viewer.decorator';
+import { Viewer, ViewerId } from '../auth/viewer.decorator';
 import { randomBytes } from 'crypto';
 import { createHash } from 'crypto';
 
 interface ClaimDto {
   publicTagId: string;
-  nickname: string;
+  nickname?: string | null;
 }
 
 interface ActivateDto {
   mode: 'RESTART' | 'CONTINUE';
+}
+
+interface UpgradeDto {
+  nickname: string;
 }
 
 @Controller('viewer')
@@ -32,6 +36,7 @@ export class ViewerController {
   @HttpCode(HttpStatus.OK)
   async claim(@Body() dto: ClaimDto) {
     const { publicTagId, nickname } = dto;
+    const displayName = nickname?.trim() || null;
 
     // Find NfcTag by publicTagId
     const nfcTag = await this.prisma.nfcTag.findUnique({
@@ -47,10 +52,13 @@ export class ViewerController {
       throw new BadRequestException(`NFC tag ${publicTagId} is not bound to an exhibition`);
     }
 
-    // Create ViewerProfile
-    const viewerProfile = await this.prisma.viewerProfile.create({
-      data: { nickname },
-    });
+    let viewerProfile = null;
+    if (displayName) {
+      // Create ViewerProfile
+      viewerProfile = await this.prisma.viewerProfile.create({
+        data: { nickname: displayName },
+      });
+    }
 
     // Create ViewerSession with random token
     const rawToken = randomBytes(32).toString('hex');
@@ -60,17 +68,65 @@ export class ViewerController {
 
     await this.prisma.viewerSession.create({
       data: {
-        viewerId: viewerProfile.id,
+        viewerId: viewerProfile?.id ?? null,
         tokenHash,
+        displayName,
         expiresAt,
       },
     });
 
     return {
-      viewerId: viewerProfile.id,
-      nickname: viewerProfile.nickname,
+      viewerId: viewerProfile?.id ?? null,
+      nickname: viewerProfile?.nickname ?? null,
       exhibitionId: nfcTag.boundExhibitionId,
       sessionToken: rawToken,
+    };
+  }
+
+  @Post('upgrade')
+  @UseGuards(ViewerAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async upgrade(
+    @Body() dto: UpgradeDto,
+    @ViewerId() viewerId?: string,
+    @Viewer() viewer?: { sessionId?: string },
+  ) {
+    const nickname = dto.nickname?.trim();
+    if (!nickname) {
+      throw new BadRequestException('Nickname is required to upgrade a session');
+    }
+
+    if (viewerId) {
+      const existingProfile = await this.prisma.viewerProfile.findUnique({
+        where: { id: viewerId },
+      });
+
+      return {
+        viewerId: existingProfile?.id ?? viewerId,
+        nickname: existingProfile?.nickname ?? nickname,
+      };
+    }
+
+    const sessionId = viewer?.sessionId;
+    if (!sessionId) {
+      throw new BadRequestException('Session is required to upgrade');
+    }
+
+    const newProfile = await this.prisma.viewerProfile.create({
+      data: { nickname },
+    });
+
+    await this.prisma.viewerSession.update({
+      where: { id: sessionId },
+      data: {
+        viewerId: newProfile.id,
+        displayName: nickname,
+      },
+    });
+
+    return {
+      viewerId: newProfile.id,
+      nickname: newProfile.nickname,
     };
   }
 
@@ -82,6 +138,9 @@ export class ViewerController {
     @Body() dto: ActivateDto,
     @ViewerId() viewerId: string,
   ) {
+    if (!viewerId) {
+      throw new BadRequestException('Viewer profile required to activate exhibition');
+    }
     const { mode } = dto;
 
     // Verify exhibition exists
