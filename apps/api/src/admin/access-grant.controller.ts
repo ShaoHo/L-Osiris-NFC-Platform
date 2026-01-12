@@ -9,29 +9,36 @@ import {
   Post,
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
-import { AccessGrantService } from '../access/access-grant.service';
 
 interface IssueAccessGrantDto {
   viewerId: string;
   exhibitionId?: string;
   versionId?: string;
   expiresAt?: string | null;
+  requestedBy: string;
+}
+
+interface RevokeAccessGrantDto {
+  requestedBy: string;
 }
 
 @Controller('admin/access-grants')
 export class AccessGrantAdminController {
   constructor(
     private prisma: PrismaService,
-    private accessGrantService: AccessGrantService,
   ) {}
 
   @Post()
   @HttpCode(HttpStatus.OK)
   async issue(@Body() dto: IssueAccessGrantDto) {
-    const { viewerId, exhibitionId, versionId, expiresAt } = dto;
+    const { viewerId, exhibitionId, versionId, expiresAt, requestedBy } = dto;
 
     if (!viewerId) {
       throw new BadRequestException('viewerId is required');
+    }
+
+    if (!requestedBy) {
+      throw new BadRequestException('requestedBy is required');
     }
 
     if (!exhibitionId && !versionId) {
@@ -82,27 +89,52 @@ export class AccessGrantAdminController {
       }
     }
 
-    const grant = await this.accessGrantService.issueGrant({
-      viewerId,
-      exhibitionId: resolvedExhibitionId,
-      versionId: versionId ?? null,
-      expiresAt: parsedExpiresAt,
+    const payload = {
+      type: 'ISSUE_ACCESS_GRANT',
+      data: {
+        viewerId,
+        exhibitionId: resolvedExhibitionId,
+        versionId: versionId ?? null,
+        expiresAt: parsedExpiresAt ? parsedExpiresAt.toISOString() : null,
+      },
+    } as const;
+
+    const action = await this.prisma.adminAction.create({
+      data: {
+        action: 'ISSUE_ACCESS_GRANT',
+        status: 'PENDING',
+        requestedBy,
+        payload,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        eventType: 'ADMIN_ACTION_REQUESTED',
+        actor: requestedBy,
+        adminActionId: action.id,
+        payload,
+      },
     });
 
     return {
-      id: grant.id,
-      viewerId: grant.viewerId,
-      exhibitionId: grant.exhibitionId,
-      versionId: grant.versionId,
-      expiresAt: grant.expiresAt,
-      revokedAt: grant.revokedAt,
-      createdAt: grant.createdAt,
+      id: action.id,
+      status: action.status,
+      requestedBy: action.requestedBy,
+      createdAt: action.createdAt,
     };
   }
 
   @Post(':grantId/revoke')
   @HttpCode(HttpStatus.OK)
-  async revoke(@Param('grantId') grantId: string) {
+  async revoke(
+    @Param('grantId') grantId: string,
+    @Body() dto: RevokeAccessGrantDto,
+  ) {
+    if (!dto.requestedBy) {
+      throw new BadRequestException('requestedBy is required');
+    }
+
     const existing = await this.prisma.accessGrant.findUnique({
       where: { id: grantId },
     });
@@ -111,16 +143,34 @@ export class AccessGrantAdminController {
       throw new NotFoundException(`Access grant not found: ${grantId}`);
     }
 
-    const grant = await this.accessGrantService.revokeGrant(grantId);
+    const payload = {
+      type: 'REVOKE_ACCESS_GRANT',
+      data: { grantId },
+    } as const;
+
+    const action = await this.prisma.adminAction.create({
+      data: {
+        action: 'REVOKE_ACCESS_GRANT',
+        status: 'PENDING',
+        requestedBy: dto.requestedBy,
+        payload,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        eventType: 'ADMIN_ACTION_REQUESTED',
+        actor: dto.requestedBy,
+        adminActionId: action.id,
+        payload,
+      },
+    });
 
     return {
-      id: grant.id,
-      viewerId: grant.viewerId,
-      exhibitionId: grant.exhibitionId,
-      versionId: grant.versionId,
-      expiresAt: grant.expiresAt,
-      revokedAt: grant.revokedAt,
-      createdAt: grant.createdAt,
+      id: action.id,
+      status: action.status,
+      requestedBy: action.requestedBy,
+      createdAt: action.createdAt,
     };
   }
 }
