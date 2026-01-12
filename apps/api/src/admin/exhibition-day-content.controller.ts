@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -143,9 +144,9 @@ export class ExhibitionDayContentAdminController {
     };
   }
 
-  @Post('publish')
+  @Get('draft')
   @HttpCode(HttpStatus.OK)
-  async publish(
+  async getDraft(
     @Param('exhibitionId') exhibitionId: string,
     @Param('dayIndex') dayIndexParam: string,
   ) {
@@ -174,7 +175,37 @@ export class ExhibitionDayContentAdminController {
       throw new NotFoundException('Draft content not found');
     }
 
-    const published = await this.prisma.exhibitionDayContent.upsert({
+    return {
+      id: draft.id,
+      exhibitionId,
+      versionId: draft.versionId,
+      dayIndex: draft.dayIndex,
+      status: draft.status,
+      html: draft.html,
+      css: draft.css,
+      assetRefs: draft.assetRefs,
+      updatedAt: draft.updatedAt,
+    };
+  }
+
+  @Get('published')
+  @HttpCode(HttpStatus.OK)
+  async getPublished(
+    @Param('exhibitionId') exhibitionId: string,
+    @Param('dayIndex') dayIndexParam: string,
+  ) {
+    const dayIndex = Number(dayIndexParam);
+    if (!Number.isInteger(dayIndex) || dayIndex < 1) {
+      throw new BadRequestException('dayIndex must be a positive integer');
+    }
+
+    const { version } = await this.loadVersion(exhibitionId);
+
+    if (dayIndex > version.totalDays) {
+      throw new BadRequestException('dayIndex exceeds totalDays for exhibition');
+    }
+
+    const published = await this.prisma.exhibitionDayContent.findUnique({
       where: {
         versionId_dayIndex_status: {
           versionId: version.id,
@@ -182,25 +213,131 @@ export class ExhibitionDayContentAdminController {
           status: 'PUBLISHED',
         },
       },
-      create: {
-        versionId: version.id,
-        dayIndex,
-        status: 'PUBLISHED',
-        html: draft.html,
-        css: draft.css,
-        assetRefs: draft.assetRefs ?? undefined,
-      },
-      update: {
-        html: draft.html,
-        css: draft.css,
-        assetRefs: draft.assetRefs ?? undefined,
-      },
     });
+
+    if (!published) {
+      throw new NotFoundException('Published content not found');
+    }
 
     return {
       id: published.id,
       exhibitionId,
       versionId: published.versionId,
+      dayIndex: published.dayIndex,
+      status: published.status,
+      html: published.html,
+      css: published.css,
+      assetRefs: published.assetRefs,
+      updatedAt: published.updatedAt,
+    };
+  }
+
+  @Post('publish')
+  @HttpCode(HttpStatus.OK)
+  async publish(
+    @Param('exhibitionId') exhibitionId: string,
+    @Param('dayIndex') dayIndexParam: string,
+  ) {
+    const dayIndex = Number(dayIndexParam);
+    if (!Number.isInteger(dayIndex) || dayIndex < 1) {
+      throw new BadRequestException('dayIndex must be a positive integer');
+    }
+
+    const { exhibition, version } = await this.loadVersion(exhibitionId);
+
+    if (dayIndex > version.totalDays) {
+      throw new BadRequestException('dayIndex exceeds totalDays for exhibition');
+    }
+
+    const draft = await this.prisma.exhibitionDayContent.findUnique({
+      where: {
+        versionId_dayIndex_status: {
+          versionId: version.id,
+          dayIndex,
+          status: 'DRAFT',
+        },
+      },
+    });
+
+    if (!draft) {
+      throw new NotFoundException('Draft content not found');
+    }
+
+    const publishedSourceContent = await this.prisma.exhibitionDayContent.findMany({
+      where: {
+        versionId: version.id,
+        status: 'PUBLISHED',
+      },
+      include: {
+        assets: true,
+      },
+    });
+
+    const { published, newVersion } = await this.prisma.$transaction(async (tx) => {
+      const newVersion = await tx.exhibitionVersion.create({
+        data: {
+          exhibitionId: exhibition.id,
+          type: exhibition.type,
+          totalDays: exhibition.totalDays,
+          visibility: exhibition.visibility,
+          status: exhibition.status,
+        },
+      });
+
+      for (const content of publishedSourceContent) {
+        const created = await tx.exhibitionDayContent.create({
+          data: {
+            versionId: newVersion.id,
+            dayIndex: content.dayIndex,
+            status: 'PUBLISHED',
+            html: content.html,
+            css: content.css,
+            assetRefs: content.assetRefs ?? undefined,
+          },
+        });
+
+        if (content.assets.length) {
+          await tx.exhibitionDayAsset.createMany({
+            data: content.assets.map((asset) => ({
+              dayContentId: created.id,
+              assetUrl: asset.assetUrl,
+              thumbnailUrl: asset.thumbnailUrl ?? undefined,
+              usageMetadata: asset.usageMetadata ?? undefined,
+            })),
+          });
+        }
+      }
+
+      const published = await tx.exhibitionDayContent.upsert({
+        where: {
+          versionId_dayIndex_status: {
+            versionId: newVersion.id,
+            dayIndex,
+            status: 'PUBLISHED',
+          },
+        },
+        create: {
+          versionId: newVersion.id,
+          dayIndex,
+          status: 'PUBLISHED',
+          html: draft.html,
+          css: draft.css,
+          assetRefs: draft.assetRefs ?? undefined,
+        },
+        update: {
+          html: draft.html,
+          css: draft.css,
+          assetRefs: draft.assetRefs ?? undefined,
+        },
+      });
+
+      return { published, newVersion };
+    });
+
+    return {
+      id: published.id,
+      exhibitionId,
+      versionId: newVersion.id,
       dayIndex: published.dayIndex,
       status: published.status,
       updatedAt: published.updatedAt,
