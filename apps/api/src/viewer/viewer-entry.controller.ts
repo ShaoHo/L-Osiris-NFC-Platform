@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { OptionalViewerAuthGuard } from '../auth/optional-viewer-auth.guard';
-import { ViewerId } from '../auth/viewer.decorator';
+import { ViewerId, ViewerSessionId } from '../auth/viewer.decorator';
 
 @Controller('viewer')
 export class ViewerEntryController {
@@ -18,6 +18,7 @@ export class ViewerEntryController {
   async resolve(
     @Param('publicTagId') publicTagId: string,
     @ViewerId() viewerId?: string,
+    @ViewerSessionId() sessionId?: string,
   ) {
     // Find NfcTag by publicTagId
     const nfcTag = await this.prisma.nfcTag.findUnique({
@@ -75,18 +76,50 @@ export class ViewerEntryController {
       };
     }
 
+    if (!sessionId) {
+      throw new NotFoundException('Viewer session not found');
+    }
+
+    const latestRun = await this.prisma.exhibitionRun.findFirst({
+      where: {
+        viewerSessionId: sessionId,
+        version: {
+          exhibitionId: exhibition.id,
+        },
+      },
+      orderBy: {
+        startedAt: 'desc',
+      },
+    });
+
+    if (!latestRun) {
+      throw new NotFoundException('Exhibition run not found');
+    }
+
+    const resolvedVersion = await this.prisma.exhibitionVersion.findUnique({
+      where: {
+        id: latestRun.versionId,
+      },
+    });
+
+    if (!resolvedVersion) {
+      throw new NotFoundException('Exhibition version not found');
+    }
+
+    const resolvedTotalDays = resolvedVersion.totalDays;
+
     // Compute dayIndex
     const now = new Date();
     const daysSinceActivation = Math.floor(
       (now.getTime() - state.activatedAt.getTime()) / 86400000,
     );
-    const dayIndex = Math.min(exhibition.totalDays, daysSinceActivation + 1);
+    const dayIndex = Math.min(resolvedTotalDays, daysSinceActivation + 1);
 
     // Load Exhibit
     const exhibit = await this.prisma.exhibit.findUnique({
       where: {
         exhibitionId_dayIndex: {
-          exhibitionId: exhibition.id,
+          exhibitionId: resolvedVersion.exhibitionId,
           dayIndex,
         },
       },
@@ -112,10 +145,10 @@ export class ViewerEntryController {
     return {
       exhibition: {
         id: exhibition.id,
-        type: exhibition.type,
-        totalDays: exhibition.totalDays,
-        status: exhibition.status,
-        visibility: exhibition.visibility,
+        type: resolvedVersion.type,
+        totalDays: resolvedTotalDays,
+        status: resolvedVersion.status,
+        visibility: resolvedVersion.visibility,
       },
       viewer: {
         id: state.viewer.id,

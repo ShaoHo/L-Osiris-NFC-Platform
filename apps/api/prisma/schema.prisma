@@ -31,6 +31,7 @@ model Exhibition {
   exhibits               Exhibit[]
   nfcTags                NfcTag[]                @relation("NfcTagExhibition")
   viewerExhibitionStates ViewerExhibitionState[]
+  versions               ExhibitionVersion[]
 
   @@index([status])
   @@index([visibility])
@@ -54,10 +55,40 @@ model ViewerSession {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   viewer    ViewerProfile @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  runs      ExhibitionRun[]
 
   @@index([viewerId])
   @@index([tokenHash])
   @@index([expiresAt])
+}
+
+model ExhibitionVersion {
+  id          String               @id @default(cuid())
+  exhibitionId String
+  type        ExhibitionType
+  totalDays   Int
+  visibility  ExhibitionVisibility
+  status      ExhibitionStatus
+  createdAt   DateTime             @default(now())
+  exhibition  Exhibition           @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  runs        ExhibitionRun[]
+
+  @@index([exhibitionId])
+}
+
+model ExhibitionRun {
+  id              String            @id @default(cuid())
+  viewerSessionId String
+  versionId       String
+  startedAt       DateTime
+  restartFromDay  Int
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  viewerSession   ViewerSession     @relation(fields: [viewerSessionId], references: [id], onDelete: Cascade)
+  version         ExhibitionVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([viewerSessionId])
+  @@index([versionId])
 }
 
 model ViewerExhibitionState {

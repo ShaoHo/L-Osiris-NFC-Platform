@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { ViewerAuthGuard } from '../auth/viewer-auth.guard';
-import { ViewerId } from '../auth/viewer.decorator';
+import { ViewerId, ViewerSessionId } from '../auth/viewer.decorator';
 import { randomBytes } from 'crypto';
 import { createHash } from 'crypto';
 
@@ -81,6 +81,7 @@ export class ViewerController {
     @Param('exhibitionId') exhibitionId: string,
     @Body() dto: ActivateDto,
     @ViewerId() viewerId: string,
+    @ViewerSessionId() sessionId: string,
   ) {
     const { mode } = dto;
 
@@ -94,30 +95,51 @@ export class ViewerController {
     }
 
     const now = new Date();
+    const snapshotData = {
+      exhibitionId: exhibition.id,
+      type: exhibition.type,
+      totalDays: exhibition.totalDays,
+      visibility: exhibition.visibility,
+      status: exhibition.status,
+    };
 
     if (mode === 'RESTART') {
-      await this.prisma.viewerExhibitionState.upsert({
-        where: {
-          viewerId_exhibitionId: {
+      const version = await this.prisma.exhibitionVersion.create({
+        data: snapshotData,
+      });
+
+      await this.prisma.$transaction([
+        this.prisma.viewerExhibitionState.upsert({
+          where: {
+            viewerId_exhibitionId: {
+              viewerId,
+              exhibitionId,
+            },
+          },
+          create: {
             viewerId,
             exhibitionId,
+            status: 'ACTIVE',
+            activatedAt: now,
+            lastDayIndex: 1,
+            pausedAt: null,
           },
-        },
-        create: {
-          viewerId,
-          exhibitionId,
-          status: 'ACTIVE',
-          activatedAt: now,
-          lastDayIndex: 1,
-          pausedAt: null,
-        },
-        update: {
-          status: 'ACTIVE',
-          activatedAt: now,
-          lastDayIndex: 1,
-          pausedAt: null,
-        },
-      });
+          update: {
+            status: 'ACTIVE',
+            activatedAt: now,
+            lastDayIndex: 1,
+            pausedAt: null,
+          },
+        }),
+        this.prisma.exhibitionRun.create({
+          data: {
+            viewerSessionId: sessionId,
+            versionId: version.id,
+            startedAt: now,
+            restartFromDay: 1,
+          },
+        }),
+      ]);
     } else if (mode === 'CONTINUE') {
       const existing = await this.prisma.viewerExhibitionState.findUnique({
         where: {
@@ -128,27 +150,53 @@ export class ViewerController {
         },
       });
 
-      await this.prisma.viewerExhibitionState.upsert({
+      const latestRun = await this.prisma.exhibitionRun.findFirst({
         where: {
-          viewerId_exhibitionId: {
-            viewerId,
+          viewerSessionId: sessionId,
+          version: {
             exhibitionId,
           },
         },
-        create: {
-          viewerId,
-          exhibitionId,
-          status: 'ACTIVE',
-          activatedAt: now,
-          pausedAt: null,
-          lastDayIndex: existing?.lastDayIndex || 1,
-        },
-        update: {
-          status: 'ACTIVE',
-          activatedAt: existing?.activatedAt || now,
-          pausedAt: null,
+        orderBy: {
+          startedAt: 'desc',
         },
       });
+
+      const versionId =
+        latestRun?.versionId ||
+        (await this.prisma.exhibitionVersion.create({ data: snapshotData })).id;
+
+      await this.prisma.$transaction([
+        this.prisma.viewerExhibitionState.upsert({
+          where: {
+            viewerId_exhibitionId: {
+              viewerId,
+              exhibitionId,
+            },
+          },
+          create: {
+            viewerId,
+            exhibitionId,
+            status: 'ACTIVE',
+            activatedAt: now,
+            pausedAt: null,
+            lastDayIndex: existing?.lastDayIndex || 1,
+          },
+          update: {
+            status: 'ACTIVE',
+            activatedAt: existing?.activatedAt || now,
+            pausedAt: null,
+          },
+        }),
+        this.prisma.exhibitionRun.create({
+          data: {
+            viewerSessionId: sessionId,
+            versionId,
+            startedAt: now,
+            restartFromDay: existing?.lastDayIndex || 1,
+          },
+        }),
+      ]);
     }
 
     const state = await this.prisma.viewerExhibitionState.findUnique({
