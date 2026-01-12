@@ -12,9 +12,11 @@ import { AdminActionController } from './admin/admin-action.controller';
 import { SoftDeletePurgeModule } from './jobs/soft-delete-purge.module';
 import { AdminAuthService } from './auth/admin-auth.service';
 import { AdminAuthGuard } from './auth/admin-auth.guard';
+import { ExhibitionDayContentAdminController } from './admin/exhibition-day-content.controller';
+import { AiGenerationModule } from './jobs/ai-generation.module';
 
 @Module({
-  imports: [DatabaseModule, SoftDeletePurgeModule],
+  imports: [DatabaseModule, SoftDeletePurgeModule, AiGenerationModule],
   controllers: [
     AppController,
     HealthController,
@@ -23,6 +25,7 @@ import { AdminAuthGuard } from './auth/admin-auth.guard';
     DevController,
     AccessGrantAdminController,
     AdminActionController,
+    ExhibitionDayContentAdminController,
   ],
   providers: [AppService, AccessGrantService, AdminAuthService, AdminAuthGuard],
 })

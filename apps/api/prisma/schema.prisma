@@ -260,6 +260,41 @@ model Exhibit {
   @@index([exhibitionId, dayIndex])
 }
 
+model ExhibitionDayContent {
+  id           String                     @id @default(cuid())
+  exhibitionId String
+  dayIndex     Int
+  status       ExhibitionDayContentStatus @default(DRAFT)
+  html         String?
+  css          String?
+  assetRefs    Json?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  exhibition   Exhibition                 @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+
+  @@unique([exhibitionId, dayIndex, status])
+  @@index([exhibitionId])
+  @@index([exhibitionId, dayIndex])
+  @@index([status])
+}
+
+model AiGenerationJob {
+  id            String               @id @default(cuid())
+  exhibitionId  String
+  dayIndex      Int
+  prompt        String
+  assetMetadata Json?
+  status        AiGenerationJobStatus @default(PENDING)
+  errorMessage  String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  exhibition    Exhibition           @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+
+  @@index([exhibitionId])
+  @@index([exhibitionId, dayIndex])
+  @@index([status])
+}
+
 enum NfcTagStatus {
   ACTIVE
   INACTIVE
@@ -300,4 +335,16 @@ enum AdminActionStatus {
 enum ExhibitRenderMode {
   BLOCKS
   HTML
+}
+
+enum ExhibitionDayContentStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum AiGenerationJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
