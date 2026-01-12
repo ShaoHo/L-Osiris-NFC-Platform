@@ -133,6 +133,33 @@ model AccessGrant {
   @@index([revokedAt])
 }
 
+model AdminAction {
+  id          String            @id @default(cuid())
+  action      String
+  status      AdminActionStatus @default(PENDING)
+  requestedBy String
+  payload     Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  auditLogs   AuditLog[]
+}
+
+model AuditLog {
+  id            String       @id @default(cuid())
+  eventType     String
+  actor         String?
+  entityType    String?
+  entityId      String?
+  payload       Json?
+  adminActionId String?
+  createdAt     DateTime     @default(now())
+  adminAction   AdminAction? @relation(fields: [adminActionId], references: [id], onDelete: SetNull)
+
+  @@index([eventType])
+  @@index([entityType, entityId])
+  @@index([adminActionId])
+}
+
 model Exhibit {
   id           String            @id @default(cuid())
   exhibitionId String
@@ -174,6 +201,12 @@ enum ViewerExhibitionStatus {
   ACTIVE
   PAUSED
   COMPLETED
+}
+
+enum AdminActionStatus {
+  PENDING
+  CONFIRMED
+  EXECUTED
 }
 
 enum ExhibitRenderMode {

@@ -8,6 +8,7 @@ import { DevController } from './dev/dev.controller';
 import { DatabaseModule } from './database/database.module';
 import { AccessGrantAdminController } from './admin/access-grant.controller';
 import { AccessGrantService } from './access/access-grant.service';
+import { AdminActionController } from './admin/admin-action.controller';
 
 @Module({
   imports: [DatabaseModule],
@@ -18,6 +19,7 @@ import { AccessGrantService } from './access/access-grant.service';
     ViewerEntryController,
     DevController,
     AccessGrantAdminController,
+    AdminActionController,
   ],
   providers: [AppService, AccessGrantService],
 })
