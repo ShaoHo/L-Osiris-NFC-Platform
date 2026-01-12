@@ -319,6 +319,23 @@ model AiGenerationJob {
   @@index([status])
 }
 
+model MarketingOutboxEvent {
+  id          String                   @id @default(cuid())
+  eventType   MarketingOutboxEventType
+  contactType MarketingContactType
+  contactId   String
+  payload     Json?
+  status      MarketingOutboxStatus    @default(PENDING)
+  errorMessage String?
+  processedAt DateTime?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  @@index([status])
+  @@index([eventType])
+  @@index([contactType, contactId])
+}
+
 enum NfcTagStatus {
   ACTIVE
   INACTIVE
@@ -371,4 +388,20 @@ enum AiGenerationJobStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+enum MarketingOutboxEventType {
+  CONTACT_SYNC
+}
+
+enum MarketingOutboxStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum MarketingContactType {
+  VIEWER
+  CURATOR
 }

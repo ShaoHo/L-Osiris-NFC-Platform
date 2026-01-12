@@ -7,12 +7,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { PasswordService } from '../auth/password.service';
+import { MarketingOutboxService } from '../jobs/marketing-outbox.service';
 
 @Controller('dev')
 export class DevController {
   constructor(
     private prisma: PrismaService,
     private passwordService: PasswordService,
+    private marketingOutboxService: MarketingOutboxService,
   ) {}
 
   @Post('seed')
@@ -43,6 +45,11 @@ export class DevController {
         email: 'dev-curator@example.com',
         passwordHash: curatorPasswordHash,
       },
+    });
+
+    await this.marketingOutboxService.enqueueContactSync({
+      contactType: 'CURATOR',
+      contactId: curator.id,
     });
 
     await this.prisma.curatorPolicy.upsert({
