@@ -102,17 +102,25 @@ export class AiGenerationService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const { html, css, assetRefs } = this.buildDraftContent(job.prompt, job.assetMetadata);
+      const version = await this.prisma.exhibitionVersion.findFirst({
+        where: { exhibitionId: job.exhibitionId },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!version) {
+        throw new Error(`Exhibition version not found for job ${job.id}`);
+      }
 
       await this.prisma.exhibitionDayContent.upsert({
         where: {
-          exhibitionId_dayIndex_status: {
-            exhibitionId: job.exhibitionId,
+          versionId_dayIndex_status: {
+            versionId: version.id,
             dayIndex: job.dayIndex,
             status: 'DRAFT',
           },
         },
         create: {
-          exhibitionId: job.exhibitionId,
+          versionId: version.id,
           dayIndex: job.dayIndex,
           status: 'DRAFT',
           html,

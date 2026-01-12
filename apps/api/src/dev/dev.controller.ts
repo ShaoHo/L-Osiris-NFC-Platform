@@ -64,6 +64,25 @@ export class DevController {
       },
     });
 
+    const version = await this.prisma.exhibitionVersion.upsert({
+      where: { id: 'exv_test123' },
+      create: {
+        id: 'exv_test123',
+        exhibitionId: exhibition.id,
+        type: exhibition.type,
+        totalDays: exhibition.totalDays,
+        visibility: exhibition.visibility,
+        status: exhibition.status,
+      },
+      update: {
+        exhibitionId: exhibition.id,
+        type: exhibition.type,
+        totalDays: exhibition.totalDays,
+        visibility: exhibition.visibility,
+        status: exhibition.status,
+      },
+    });
+
     // Create or upsert NfcTag
     const nfcTag = await this.prisma.nfcTag.upsert({
       where: { publicTagId: 'tg_test123' },
@@ -80,33 +99,24 @@ export class DevController {
       },
     });
 
-    // Create or upsert Exhibit for dayIndex=1
-    await this.prisma.exhibit.upsert({
+    await this.prisma.exhibitionDayContent.upsert({
       where: {
-        exhibitionId_dayIndex: {
-          exhibitionId: exhibition.id,
+        versionId_dayIndex_status: {
+          versionId: version.id,
           dayIndex: 1,
+          status: 'PUBLISHED',
         },
       },
       create: {
-        exhibitionId: exhibition.id,
+        versionId: version.id,
         dayIndex: 1,
-        mode: 'BLOCKS',
-        blocksJson: {
-          blocks: [
-            { type: 'heading', text: 'Day 1' },
-            { type: 'paragraph', text: 'Hello from seeded exhibit.' },
-          ],
-        },
+        status: 'PUBLISHED',
+        html: '<h1>Day 1</h1><p>Hello from seeded exhibition content.</p>',
+        css: 'h1 { font-size: 32px; }',
       },
       update: {
-        mode: 'BLOCKS',
-        blocksJson: {
-          blocks: [
-            { type: 'heading', text: 'Day 1' },
-            { type: 'paragraph', text: 'Hello from seeded exhibit.' },
-          ],
-        },
+        html: '<h1>Day 1</h1><p>Hello from seeded exhibition content.</p>',
+        css: 'h1 { font-size: 32px; }',
       },
     });
 

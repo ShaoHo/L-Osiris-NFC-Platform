@@ -112,6 +112,7 @@ model ExhibitionVersion {
   exhibition  Exhibition           @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
   runs        ExhibitionRun[]
   accessGrants AccessGrant[]
+  dayContents ExhibitionDayContent[]
 
   @@index([exhibitionId])
   @@index([deletedAt])
@@ -262,7 +263,7 @@ model Exhibit {
 
 model ExhibitionDayContent {
   id           String                     @id @default(cuid())
-  exhibitionId String
+  versionId    String
   dayIndex     Int
   status       ExhibitionDayContentStatus @default(DRAFT)
   html         String?
@@ -270,12 +271,26 @@ model ExhibitionDayContent {
   assetRefs    Json?
   createdAt    DateTime                   @default(now())
   updatedAt    DateTime                   @updatedAt
-  exhibition   Exhibition                 @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  version      ExhibitionVersion          @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  assets       ExhibitionDayAsset[]
 
-  @@unique([exhibitionId, dayIndex, status])
-  @@index([exhibitionId])
-  @@index([exhibitionId, dayIndex])
+  @@unique([versionId, dayIndex, status])
+  @@index([versionId])
+  @@index([versionId, dayIndex])
   @@index([status])
+}
+
+model ExhibitionDayAsset {
+  id           String               @id @default(cuid())
+  dayContentId String
+  assetUrl     String
+  thumbnailUrl String?
+  usageMetadata Json?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  dayContent   ExhibitionDayContent @relation(fields: [dayContentId], references: [id], onDelete: Cascade)
+
+  @@index([dayContentId])
 }
 
 model AiGenerationJob {
