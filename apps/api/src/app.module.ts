@@ -10,6 +10,8 @@ import { AccessGrantAdminController } from './admin/access-grant.controller';
 import { AccessGrantService } from './access/access-grant.service';
 import { AdminActionController } from './admin/admin-action.controller';
 import { SoftDeletePurgeModule } from './jobs/soft-delete-purge.module';
+import { AdminAuthService } from './auth/admin-auth.service';
+import { AdminAuthGuard } from './auth/admin-auth.guard';
 
 @Module({
   imports: [DatabaseModule, SoftDeletePurgeModule],
@@ -22,6 +24,6 @@ import { SoftDeletePurgeModule } from './jobs/soft-delete-purge.module';
     AccessGrantAdminController,
     AdminActionController,
   ],
-  providers: [AppService, AccessGrantService],
+  providers: [AppService, AccessGrantService, AdminAuthService, AdminAuthGuard],
 })
 export class AppModule {}

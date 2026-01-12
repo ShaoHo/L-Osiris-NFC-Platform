@@ -6,9 +6,11 @@ import {
   NotFoundException,
   Param,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { AccessGrantService } from '../access/access-grant.service';
+import { AdminAuthGuard } from '../auth/admin-auth.guard';
 
 interface IssueAccessGrantPayload {
   type: 'ISSUE_ACCESS_GRANT';
@@ -30,6 +32,7 @@ interface RevokeAccessGrantPayload {
 type AdminActionPayload = IssueAccessGrantPayload | RevokeAccessGrantPayload;
 
 @Controller('admin/actions')
+@UseGuards(AdminAuthGuard)
 export class AdminActionController {
   constructor(
     private prisma: PrismaService,
