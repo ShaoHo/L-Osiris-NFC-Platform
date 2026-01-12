@@ -11,12 +11,62 @@ model NfcTag {
   publicTagId       String       @unique
   status            NfcTagStatus @default(ACTIVE)
   boundExhibitionId String?
+  curatorId         String?
+  deletedAt         DateTime?
+  purgeAfter        DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   boundExhibition   Exhibition?  @relation("NfcTagExhibition", fields: [boundExhibitionId], references: [id])
+  curator           Curator?     @relation(fields: [curatorId], references: [id], onDelete: SetNull)
+  viewerSessions    ViewerSession[]
 
   @@index([publicTagId])
   @@index([boundExhibitionId])
+  @@index([curatorId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model Curator {
+  id         String         @id @default(cuid())
+  email      String         @unique
+  name       String?
+  tier       CuratorTier    @default(STANDARD)
+  payoutProfileCompleted Boolean @default(false)
+  suspendedAt DateTime?
+  suspendedReason String?
+  passwordHash        String
+  passwordUpdatedAt   DateTime?
+  resetTokenHash      String?
+  resetTokenExpiresAt DateTime?
+  lastLoginAt         DateTime?
+  deletedAt  DateTime?
+  purgeAfter DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  exhibitions Exhibition[]
+  nfcTags    NfcTag[]
+  policy     CuratorPolicy?
+
+  @@index([email])
+  @@index([resetTokenExpiresAt])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model CuratorPolicy {
+  id              String          @id @default(cuid())
+  curatorId       String          @unique
+  nfcScopePolicy  NfcScopePolicy  @default(EXHIBITION_ONLY)
+  deletedAt       DateTime?
+  purgeAfter      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  curator         Curator         @relation(fields: [curatorId], references: [id], onDelete: Cascade)
+
+  @@index([curatorId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model Exhibition {
@@ -24,58 +74,252 @@ model Exhibition {
   type                   ExhibitionType
   totalDays              Int
   visibility             ExhibitionVisibility    @default(DRAFT)
-  status                 ExhibitionStatus        @default(ACTIVE)
+  status                 ExhibitionStatus        @default(DRAFT)
   curatorId              String?
+  deletedAt              DateTime?
+  purgeAfter             DateTime?
+  governanceMaskedAt     DateTime?
+  governanceMaskReason   String?
+  monetizationEnabled    Boolean                @default(false)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   exhibits               Exhibit[]
   nfcTags                NfcTag[]                @relation("NfcTagExhibition")
   viewerExhibitionStates ViewerExhibitionState[]
+  versions               ExhibitionVersion[]
+  accessGrants           AccessGrant[]
+  aiGenerationJobs       AiGenerationJob[]
+  curator                Curator?                @relation(fields: [curatorId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([visibility])
+  @@index([curatorId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model ViewerProfile {
   id               String                  @id @default(cuid())
-  nickname         String
+  nickname         String?
+  deletedAt        DateTime?
+  purgeAfter       DateTime?
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
   exhibitionStates ViewerExhibitionState[]
   sessions         ViewerSession[]
+  accessGrants     AccessGrant[]
+
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model ViewerSession {
   id        String        @id @default(cuid())
-  viewerId  String
+  viewerId  String?
+  nfcTagId  String?
   tokenHash String        @unique
+  displayName String?
   expiresAt DateTime
   revokedAt DateTime?
+  deletedAt DateTime?
+  purgeAfter DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
-  viewer    ViewerProfile @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  viewer    ViewerProfile? @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  nfcTag    NfcTag?        @relation(fields: [nfcTagId], references: [id], onDelete: SetNull)
+  runs      ExhibitionRun[]
+  viewerStates ViewerExhibitionState[]
 
   @@index([viewerId])
+  @@index([nfcTagId])
   @@index([tokenHash])
   @@index([expiresAt])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model ExhibitionVersion {
+  id          String               @id @default(cuid())
+  exhibitionId String
+  type        ExhibitionType
+  totalDays   Int
+  visibility  ExhibitionVisibility
+  status      ExhibitionStatus
+  deletedAt   DateTime?
+  purgeAfter  DateTime?
+  createdAt   DateTime             @default(now())
+  exhibition  Exhibition           @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  runs        ExhibitionRun[]
+  accessGrants AccessGrant[]
+  dayContents ExhibitionDayContent[]
+
+  @@index([exhibitionId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model ExhibitionRun {
+  id              String            @id @default(cuid())
+  viewerSessionId String
+  versionId       String
+  startedAt       DateTime
+  restartFromDay  Int
+  deletedAt       DateTime?
+  purgeAfter      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  viewerSession   ViewerSession     @relation(fields: [viewerSessionId], references: [id], onDelete: Cascade)
+  version         ExhibitionVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([viewerSessionId])
+  @@index([versionId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model ViewerExhibitionState {
   id           String                 @id @default(cuid())
-  viewerId     String
+  viewerId     String?
+  viewerSessionId String
   exhibitionId String
   status       ViewerExhibitionStatus @default(ACTIVE)
   activatedAt  DateTime?
   pausedAt     DateTime?
   lastDayIndex Int                    @default(1)
+  deletedAt    DateTime?
+  purgeAfter   DateTime?
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
   exhibition   Exhibition             @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
-  viewer       ViewerProfile          @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  viewer       ViewerProfile?         @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  viewerSession ViewerSession         @relation(fields: [viewerSessionId], references: [id], onDelete: Cascade)
 
-  @@unique([viewerId, exhibitionId])
+  @@unique([viewerSessionId, exhibitionId])
+  @@index([viewerId])
+  @@index([viewerSessionId])
+  @@index([exhibitionId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model AccessGrant {
+  id           String             @id @default(cuid())
+  viewerId     String
+  exhibitionId String?
+  versionId    String?
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  deletedAt    DateTime?
+  purgeAfter   DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  viewer       ViewerProfile      @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  exhibition   Exhibition?        @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  version      ExhibitionVersion? @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
   @@index([viewerId])
   @@index([exhibitionId])
+  @@index([versionId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model AdminAction {
+  id          String            @id @default(cuid())
+  action      String
+  status      AdminActionStatus @default(PENDING)
+  requestedBy String
+  confirmedBy String?
+  executedBy  String?
+  cancelledBy String?
+  confirmedAt DateTime?
+  executedAt  DateTime?
+  cancelledAt DateTime?
+  executeAfter DateTime?
+  payload     Json?
+  deletedAt   DateTime?
+  purgeAfter  DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  auditLogs   AuditLog[]
+
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model AuditLog {
+  id            String       @id @default(cuid())
+  eventType     String
+  actor         String?
+  entityType    String?
+  entityId      String?
+  payload       Json?
+  adminActionId String?
+  deletedAt     DateTime?
+  purgeAfter    DateTime?
+  createdAt     DateTime     @default(now())
+  adminAction   AdminAction? @relation(fields: [adminActionId], references: [id], onDelete: SetNull)
+
+  @@index([eventType])
+  @@index([entityType, entityId])
+  @@index([adminActionId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model User {
+  id                   String     @id @default(cuid())
+  email                String     @unique
+  name                 String?
+  passwordHash         String
+  passwordUpdatedAt    DateTime?
+  resetTokenHash       String?
+  resetTokenExpiresAt  DateTime?
+  lastLoginAt          DateTime?
+  deletedAt            DateTime?
+  purgeAfter           DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  roles                UserRole[]
+
+  @@index([email])
+  @@index([resetTokenExpiresAt])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model Role {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  deletedAt   DateTime?
+  purgeAfter  DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  users       UserRole[]
+
+  @@index([name])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  deletedAt DateTime?
+  purgeAfter DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model Exhibit {
@@ -86,6 +330,8 @@ model Exhibit {
   blocksJson   Json?
   html         String?
   css          String?
+  deletedAt    DateTime?
+  purgeAfter   DateTime?
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   exhibition   Exhibition        @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
@@ -93,11 +339,100 @@ model Exhibit {
   @@unique([exhibitionId, dayIndex])
   @@index([exhibitionId])
   @@index([exhibitionId, dayIndex])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model ExhibitionDayContent {
+  id           String                     @id @default(cuid())
+  versionId    String
+  dayIndex     Int
+  status       ExhibitionDayContentStatus @default(DRAFT)
+  html         String?
+  css          String?
+  assetRefs    Json?
+  deletedAt    DateTime?
+  purgeAfter   DateTime?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  version      ExhibitionVersion          @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  assets       ExhibitionDayAsset[]
+
+  @@unique([versionId, dayIndex, status])
+  @@index([versionId])
+  @@index([versionId, dayIndex])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model ExhibitionDayAsset {
+  id           String               @id @default(cuid())
+  dayContentId String
+  assetUrl     String
+  thumbnailUrl String?
+  usageMetadata Json?
+  deletedAt    DateTime?
+  purgeAfter   DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  dayContent   ExhibitionDayContent @relation(fields: [dayContentId], references: [id], onDelete: Cascade)
+
+  @@index([dayContentId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model AiGenerationJob {
+  id            String               @id @default(cuid())
+  exhibitionId  String
+  dayIndex      Int
+  prompt        String
+  assetMetadata Json?
+  status        AiGenerationJobStatus @default(PENDING)
+  errorMessage  String?
+  deletedAt     DateTime?
+  purgeAfter    DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  exhibition    Exhibition           @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+
+  @@index([exhibitionId])
+  @@index([exhibitionId, dayIndex])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model MarketingOutboxEvent {
+  id          String                   @id @default(cuid())
+  eventType   MarketingOutboxEventType
+  contactType MarketingContactType
+  contactId   String
+  payload     Json?
+  status      MarketingOutboxStatus    @default(PENDING)
+  errorMessage String?
+  processedAt DateTime?
+  deletedAt   DateTime?
+  purgeAfter  DateTime?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  @@index([status])
+  @@index([eventType])
+  @@index([contactType, contactId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 enum NfcTagStatus {
   ACTIVE
   INACTIVE
+}
+
+enum NfcScopePolicy {
+  EXHIBITION_ONLY
+  EXHIBITION_AND_GALLERY
 }
 
 enum ExhibitionType {
@@ -111,6 +446,7 @@ enum ExhibitionVisibility {
 }
 
 enum ExhibitionStatus {
+  DRAFT
   ACTIVE
   ARCHIVED
 }
@@ -121,7 +457,47 @@ enum ViewerExhibitionStatus {
   COMPLETED
 }
 
+enum AdminActionStatus {
+  PENDING
+  CONFIRMED
+  EXECUTED
+  CANCELLED
+}
+
 enum ExhibitRenderMode {
   BLOCKS
   HTML
+}
+
+enum ExhibitionDayContentStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum AiGenerationJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum MarketingOutboxEventType {
+  CONTACT_SYNC
+}
+
+enum MarketingOutboxStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum MarketingContactType {
+  VIEWER
+  CURATOR
+}
+
+enum CuratorTier {
+  STANDARD
+  CREATOR
 }

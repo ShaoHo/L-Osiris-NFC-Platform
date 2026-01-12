@@ -18,10 +18,15 @@ jobs:
         with:
           version: 8
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20.19.0'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -35,3 +40,10 @@ jobs:
 
       - name: Test
         run: pnpm -r test
+
+      - name: Configure npm token (if provided)
+        if: ${{ secrets.NPM_TOKEN != '' }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,0 +1,1 @@
+ALTER TYPE "ExhibitionStatus" ADD VALUE IF NOT EXISTS 'DRAFT';

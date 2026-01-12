@@ -11,27 +11,40 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { ViewerAuthGuard } from '../auth/viewer-auth.guard';
-import { ViewerId } from '../auth/viewer.decorator';
+import { Viewer, ViewerId, ViewerSessionId } from '../auth/viewer.decorator';
 import { randomBytes } from 'crypto';
 import { createHash } from 'crypto';
+import { MarketingOutboxService } from '../jobs/marketing-outbox.service';
+import { AccessPolicyService } from '../access/access-policy.service';
+import { Prisma } from '@prisma/client';
+import type { ViewerProfile } from '@prisma/client';
 
 interface ClaimDto {
   publicTagId: string;
-  nickname: string;
+  nickname?: string | null;
 }
 
 interface ActivateDto {
   mode: 'RESTART' | 'CONTINUE';
 }
 
+interface UpgradeDto {
+  nickname: string;
+}
+
 @Controller('viewer')
 export class ViewerController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private marketingOutboxService: MarketingOutboxService,
+    private accessPolicyService: AccessPolicyService,
+  ) {}
 
   @Post('claim')
   @HttpCode(HttpStatus.OK)
   async claim(@Body() dto: ClaimDto) {
     const { publicTagId, nickname } = dto;
+    const displayName = nickname?.trim() || null;
 
     // Find NfcTag by publicTagId
     const nfcTag = await this.prisma.nfcTag.findUnique({
@@ -47,10 +60,18 @@ export class ViewerController {
       throw new BadRequestException(`NFC tag ${publicTagId} is not bound to an exhibition`);
     }
 
-    // Create ViewerProfile
-    const viewerProfile = await this.prisma.viewerProfile.create({
-      data: { nickname },
-    });
+    let viewerProfile: ViewerProfile | null = null;
+    if (displayName) {
+      // Create ViewerProfile
+      viewerProfile = await this.prisma.viewerProfile.create({
+        data: { nickname: displayName },
+      });
+
+      await this.marketingOutboxService.enqueueContactSync({
+        contactType: 'VIEWER',
+        contactId: viewerProfile.id,
+      });
+    }
 
     // Create ViewerSession with random token
     const rawToken = randomBytes(32).toString('hex');
@@ -60,17 +81,71 @@ export class ViewerController {
 
     await this.prisma.viewerSession.create({
       data: {
-        viewerId: viewerProfile.id,
+        viewerId: viewerProfile?.id ?? null,
+        nfcTagId: nfcTag.id,
         tokenHash,
+        displayName,
         expiresAt,
       },
     });
 
     return {
-      viewerId: viewerProfile.id,
-      nickname: viewerProfile.nickname,
+      viewerId: viewerProfile?.id ?? null,
+      nickname: viewerProfile?.nickname ?? null,
       exhibitionId: nfcTag.boundExhibitionId,
       sessionToken: rawToken,
+    };
+  }
+
+  @Post('upgrade')
+  @UseGuards(ViewerAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async upgrade(
+    @Body() dto: UpgradeDto,
+    @ViewerId() viewerId?: string,
+    @Viewer() viewer?: { sessionId?: string },
+  ) {
+    const nickname = dto.nickname?.trim();
+    if (!nickname) {
+      throw new BadRequestException('Nickname is required to upgrade a session');
+    }
+
+    if (viewerId) {
+      const existingProfile = await this.prisma.viewerProfile.findUnique({
+        where: { id: viewerId },
+      });
+
+      return {
+        viewerId: existingProfile?.id ?? viewerId,
+        nickname: existingProfile?.nickname ?? nickname,
+      };
+    }
+
+    const sessionId = viewer?.sessionId;
+    if (!sessionId) {
+      throw new BadRequestException('Session is required to upgrade');
+    }
+
+    const newProfile = await this.prisma.viewerProfile.create({
+      data: { nickname },
+    });
+
+    await this.marketingOutboxService.enqueueContactSync({
+      contactType: 'VIEWER',
+      contactId: newProfile.id,
+    });
+
+    await this.prisma.viewerSession.update({
+      where: { id: sessionId },
+      data: {
+        viewerId: newProfile.id,
+        displayName: nickname,
+      },
+    });
+
+    return {
+      viewerId: newProfile.id,
+      nickname: newProfile.nickname,
     };
   }
 
@@ -80,7 +155,8 @@ export class ViewerController {
   async activate(
     @Param('exhibitionId') exhibitionId: string,
     @Body() dto: ActivateDto,
-    @ViewerId() viewerId: string,
+    @ViewerId() viewerId: string | undefined,
+    @ViewerSessionId() sessionId: string,
   ) {
     const { mode } = dto;
 
@@ -93,68 +169,162 @@ export class ViewerController {
       throw new NotFoundException(`Exhibition not found: ${exhibitionId}`);
     }
 
+    const policy = await this.accessPolicyService.canAccessExhibition({
+      exhibitionId: exhibition.id,
+      viewerId,
+      sessionId,
+    });
+
+    if (!policy.allowed) {
+      if (policy.reason === 'GRANT_REQUIRED') {
+        throw new BadRequestException('Access grant required to activate exhibition');
+      }
+      throw new BadRequestException('Exhibition access is restricted by policy');
+    }
+
     const now = new Date();
+    const snapshotData = {
+      exhibitionId: exhibition.id,
+      type: exhibition.type,
+      totalDays: exhibition.totalDays,
+      visibility: exhibition.visibility,
+      status: exhibition.status,
+    };
 
     if (mode === 'RESTART') {
-      await this.prisma.viewerExhibitionState.upsert({
-        where: {
-          viewerId_exhibitionId: {
-            viewerId,
-            exhibitionId,
+      const version = await this.prisma.exhibitionVersion.create({
+        data: snapshotData,
+      });
+
+      const [run] = await this.prisma.$transaction([
+        this.prisma.exhibitionRun.create({
+          data: {
+            viewerSessionId: sessionId,
+            versionId: version.id,
+            startedAt: now,
+            restartFromDay: 1,
           },
-        },
-        create: {
-          viewerId,
-          exhibitionId,
-          status: 'ACTIVE',
-          activatedAt: now,
-          lastDayIndex: 1,
-          pausedAt: null,
-        },
-        update: {
-          status: 'ACTIVE',
-          activatedAt: now,
-          lastDayIndex: 1,
-          pausedAt: null,
+        }),
+        this.prisma.viewerExhibitionState.upsert({
+          where: {
+            viewerSessionId_exhibitionId: {
+              viewerSessionId: sessionId,
+              exhibitionId,
+            },
+          },
+          create: {
+            viewerId: viewerId ?? null,
+            viewerSessionId: sessionId,
+            exhibitionId,
+            status: 'ACTIVE',
+            activatedAt: now,
+            lastDayIndex: 1,
+            pausedAt: null,
+          },
+          update: {
+            viewerId: viewerId ?? undefined,
+            status: 'ACTIVE',
+            activatedAt: now,
+            lastDayIndex: 1,
+            pausedAt: null,
+          },
+        }),
+      ]);
+
+      await this.prisma.auditLog.create({
+        data: {
+          eventType: 'EXHIBITION_RUN_STARTED',
+          actor: viewerId ?? null,
+          entityType: 'ExhibitionRun',
+          entityId: run.id,
+          payload: {
+            exhibitionId,
+            versionId: run.versionId,
+            viewerSessionId: run.viewerSessionId,
+            restartFromDay: run.restartFromDay,
+          },
         },
       });
     } else if (mode === 'CONTINUE') {
       const existing = await this.prisma.viewerExhibitionState.findUnique({
         where: {
-          viewerId_exhibitionId: {
-            viewerId,
+          viewerSessionId_exhibitionId: {
+            viewerSessionId: sessionId,
             exhibitionId,
           },
         },
       });
 
-      await this.prisma.viewerExhibitionState.upsert({
+      const latestRun = await this.prisma.exhibitionRun.findFirst({
         where: {
-          viewerId_exhibitionId: {
-            viewerId,
+          viewerSessionId: sessionId,
+          version: {
             exhibitionId,
           },
         },
-        create: {
-          viewerId,
-          exhibitionId,
-          status: 'ACTIVE',
-          activatedAt: now,
-          pausedAt: null,
-          lastDayIndex: existing?.lastDayIndex || 1,
+        orderBy: {
+          startedAt: 'desc',
         },
-        update: {
-          status: 'ACTIVE',
-          activatedAt: existing?.activatedAt || now,
-          pausedAt: null,
+      });
+
+      const versionId =
+        latestRun?.versionId ||
+        (await this.prisma.exhibitionVersion.create({ data: snapshotData })).id;
+
+      const [run] = await this.prisma.$transaction([
+        this.prisma.exhibitionRun.create({
+          data: {
+            viewerSessionId: sessionId,
+            versionId,
+            startedAt: now,
+            restartFromDay: existing?.lastDayIndex || 1,
+          },
+        }),
+        this.prisma.viewerExhibitionState.upsert({
+          where: {
+            viewerSessionId_exhibitionId: {
+              viewerSessionId: sessionId,
+              exhibitionId,
+            },
+          },
+          create: {
+            viewerId: viewerId ?? null,
+            viewerSessionId: sessionId,
+            exhibitionId,
+            status: 'ACTIVE',
+            activatedAt: now,
+            pausedAt: null,
+            lastDayIndex: existing?.lastDayIndex || 1,
+          },
+          update: {
+            viewerId: viewerId ?? undefined,
+            status: 'ACTIVE',
+            activatedAt: existing?.activatedAt || now,
+            pausedAt: null,
+          },
+        }),
+      ]);
+
+      await this.prisma.auditLog.create({
+        data: {
+          eventType: 'EXHIBITION_RUN_STARTED',
+          actor: viewerId ?? null,
+          entityType: 'ExhibitionRun',
+          entityId: run.id,
+          payload: {
+            exhibitionId,
+            versionId: run.versionId,
+            viewerSessionId: run.viewerSessionId,
+            restartFromDay: run.restartFromDay,
+          },
         },
       });
     }
 
     const state = await this.prisma.viewerExhibitionState.findUnique({
       where: {
-        viewerId_exhibitionId: {
-          viewerId,
+        viewerSessionId_exhibitionId: {
+          viewerSessionId: sessionId,
           exhibitionId,
         },
       },

@@ -1,82 +1,197 @@
-# L-Osiris NFC Platform
+# L-Osiris NFC Exhibition Platform
 
-Monorepo for the **L-Osiris NFC-enabled leather goods platform**.
+The **L-Osiris NFC Exhibition Platform** is a monorepo that powers NFC-driven, time-bounded exhibitions. It includes a NestJS API, background workers for AI draft generation and marketing sync, and shared infra (Postgres + Redis) for local development.
 
-This repository contains the backend API, shared packages, and local infrastructure setup required to develop and run the platform.
+---
+
+## Contents
+
+- [Repo Structure](#repo-structure)
+- [Tech Stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Environment Configuration](#environment-configuration)
+- [Local Development](#local-development)
+- [Database & Migrations](#database--migrations)
+- [Queues & Workers](#queues--workers)
+- [Testing](#testing)
+- [Common Tasks](#common-tasks)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Repo Structure
+
+```
+.
+├── apps/
+│   ├── api/                  # NestJS API (Prisma, BullMQ)
+│   ├── worker-ai/            # AI generation worker
+│   └── worker-mautic/        # Marketing outbox worker (Mautic sync)
+├── packages/                 # Shared packages (contracts/utils, WIP)
+├── docker-compose.yml        # Local Postgres + Redis
+├── pnpm-workspace.yaml
+└── turbo.json
+```
 
 ---
 
 ## Tech Stack
 
-- **API**: NestJS (`apps/api`)
+- **Backend**: NestJS (`apps/api`)
 - **Database**: PostgreSQL (via Docker Compose)
-- **Cache / Queue**: Redis (via Docker Compose)
+- **Queue / Cache**: Redis (via Docker Compose)
 - **ORM**: Prisma
+- **Workers**: BullMQ
 - **Package Manager**: pnpm
-- **Runtime**: Node.js
 
 ---
 
 ## Prerequisites
 
-Make sure you have the following installed:
-
 - **Node.js** (recommended ≥ 20)
-- **pnpm**
+- **pnpm** (≥ 8)
 - **Docker Desktop**
 
 ---
 
-## Repository Structure
-.
-├── apps/
-│ └── api/ # NestJS API
-├── packages/ # Shared packages (contracts/utils, WIP)
-├── docker-compose.yml # Local Postgres + Redis
-└── README.md
+## Environment Configuration
 
+Create an API environment file at `apps/api/.env`:
+
+```
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/losiris?schema=public
+REDIS_URL=redis://localhost:6379
+APP_ENV=development
+```
+
+Optional root `.env` is also supported.
 
 ---
 
-## Local Development Setup
+## Local Development
 
-### 1. Install Dependencies
+### 1) Install dependencies
 
 ```bash
 pnpm install
+```
 
-2. Start Infrastructure (Postgres + Redis)
+### 2) Start Postgres + Redis
+
+```bash
 docker compose up -d
 docker compose ps
+```
 
+### 3) Generate Prisma client
 
-3. Environment Variables
+```bash
+pnpm --dir apps/api prisma:generate
+```
 
-Root env (optional): .env
-API env: apps/api/.env
+### 4) Run migrations
 
-Example apps/api/.env:
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/losiris?schema=public
+```bash
+pnpm --dir apps/api db:migrate
+```
 
-4. Prisma (Generate & Migrate)
-pnpm --filter ./apps/api prisma:generate
-pnpm --filter ./apps/api db:migrate --name init_m1
+### 5) Start API
 
-5. Run API (Development Mode)
+```bash
 pnpm --dir apps/api start:dev
+```
 
-6. Health Check
-Verify the API is running:
+### 6) Health check
+
+```bash
 curl http://localhost:3001/v1/health
+```
 
-Expected response: OK
+---
 
-7. Useful Commands
-Build API
+## Database & Migrations
+
+- Prisma schema lives in `apps/api/prisma/schema.prisma`.
+- Migrations live in `apps/api/prisma/migrations/`.
+
+### Apply migrations (dev)
+
+```bash
+pnpm --dir apps/api db:migrate
+```
+
+### Apply migrations (deploy)
+
+```bash
+pnpm --dir apps/api db:deploy
+```
+
+---
+
+## Queues & Workers
+
+### AI Worker
+
+```bash
+pnpm --dir apps/worker-ai dev
+```
+
+### Marketing Outbox Worker
+
+```bash
+pnpm --dir apps/worker-mautic dev
+```
+
+Both workers require the same `DATABASE_URL` and `REDIS_URL` values as the API.
+
+---
+
+## Testing
+
+### Run API tests
+
+```bash
+pnpm --dir apps/api test
+```
+
+### Run all workspace tests
+
+```bash
+pnpm test
+```
+
+---
+
+## Common Tasks
+
+### Build API
+
+```bash
 pnpm --dir apps/api build
+```
 
-Run API (Production Mode)
+### Run API (production)
+
+```bash
 pnpm --dir apps/api start:prod
+```
 
-Prisma Studio
-pnpm --filter ./apps/api db:studio
+### Prisma Studio
+
+```bash
+pnpm --dir apps/api db:studio
+```
+
+---
+
+## Troubleshooting
+
+- **Prisma client not generated**: run `pnpm --dir apps/api prisma:generate`.
+- **Redis connection errors**: ensure `REDIS_URL` is set and `docker compose` is running.
+- **Database connection errors**: confirm `DATABASE_URL` is correct and Postgres is running.
+
+---
+
+## License
+
+UNLICENSED (internal use only).

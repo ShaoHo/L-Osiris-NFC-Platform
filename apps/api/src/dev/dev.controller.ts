@@ -6,10 +6,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { PasswordService } from '../auth/password.service';
+import { MarketingOutboxService } from '../jobs/marketing-outbox.service';
 
 @Controller('dev')
 export class DevController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private passwordService: PasswordService,
+    private marketingOutboxService: MarketingOutboxService,
+  ) {}
 
   @Post('seed')
   @HttpCode(HttpStatus.OK)
@@ -22,6 +28,41 @@ export class DevController {
       throw new NotFoundException();
     }
 
+    const curatorPasswordHash = await this.passwordService.hashPassword(
+      'dev-curator-password',
+    );
+
+    const curator = await this.prisma.curator.upsert({
+      where: { id: 'curator_dev' },
+      create: {
+        id: 'curator_dev',
+        name: 'Dev Curator',
+        email: 'dev-curator@example.com',
+        passwordHash: curatorPasswordHash,
+      },
+      update: {
+        name: 'Dev Curator',
+        email: 'dev-curator@example.com',
+        passwordHash: curatorPasswordHash,
+      },
+    });
+
+    await this.marketingOutboxService.enqueueContactSync({
+      contactType: 'CURATOR',
+      contactId: curator.id,
+    });
+
+    await this.prisma.curatorPolicy.upsert({
+      where: { curatorId: curator.id },
+      create: {
+        curatorId: curator.id,
+        nfcScopePolicy: 'EXHIBITION_AND_GALLERY',
+      },
+      update: {
+        nfcScopePolicy: 'EXHIBITION_AND_GALLERY',
+      },
+    });
+
     // Create or upsert Exhibition
     const exhibition = await this.prisma.exhibition.upsert({
       where: { id: 'exh_test123' },
@@ -31,14 +72,33 @@ export class DevController {
         totalDays: 365,
         visibility: 'PUBLIC',
         status: 'ACTIVE',
-        curatorId: 'curator_dev',
+        curatorId: curator.id,
       },
       update: {
         type: 'ONE_TO_ONE',
         totalDays: 365,
         visibility: 'PUBLIC',
         status: 'ACTIVE',
-        curatorId: 'curator_dev',
+        curatorId: curator.id,
+      },
+    });
+
+    const version = await this.prisma.exhibitionVersion.upsert({
+      where: { id: 'exv_test123' },
+      create: {
+        id: 'exv_test123',
+        exhibitionId: exhibition.id,
+        type: exhibition.type,
+        totalDays: exhibition.totalDays,
+        visibility: exhibition.visibility,
+        status: exhibition.status,
+      },
+      update: {
+        exhibitionId: exhibition.id,
+        type: exhibition.type,
+        totalDays: exhibition.totalDays,
+        visibility: exhibition.visibility,
+        status: exhibition.status,
       },
     });
 
@@ -49,40 +109,33 @@ export class DevController {
         publicTagId: 'tg_test123',
         status: 'ACTIVE',
         boundExhibitionId: exhibition.id,
+        curatorId: curator.id,
       },
       update: {
         status: 'ACTIVE',
         boundExhibitionId: exhibition.id,
+        curatorId: curator.id,
       },
     });
 
-    // Create or upsert Exhibit for dayIndex=1
-    await this.prisma.exhibit.upsert({
+    await this.prisma.exhibitionDayContent.upsert({
       where: {
-        exhibitionId_dayIndex: {
-          exhibitionId: exhibition.id,
+        versionId_dayIndex_status: {
+          versionId: version.id,
           dayIndex: 1,
+          status: 'PUBLISHED',
         },
       },
       create: {
-        exhibitionId: exhibition.id,
+        versionId: version.id,
         dayIndex: 1,
-        mode: 'BLOCKS',
-        blocksJson: {
-          blocks: [
-            { type: 'heading', text: 'Day 1' },
-            { type: 'paragraph', text: 'Hello from seeded exhibit.' },
-          ],
-        },
+        status: 'PUBLISHED',
+        html: '<h1>Day 1</h1><p>Hello from seeded exhibition content.</p>',
+        css: 'h1 { font-size: 32px; }',
       },
       update: {
-        mode: 'BLOCKS',
-        blocksJson: {
-          blocks: [
-            { type: 'heading', text: 'Day 1' },
-            { type: 'paragraph', text: 'Hello from seeded exhibit.' },
-          ],
-        },
+        html: '<h1>Day 1</h1><p>Hello from seeded exhibition content.</p>',
+        css: 'h1 { font-size: 32px; }',
       },
     });
 
