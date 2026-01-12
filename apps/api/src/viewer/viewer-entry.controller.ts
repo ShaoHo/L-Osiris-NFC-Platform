@@ -8,10 +8,14 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import { OptionalViewerAuthGuard } from '../auth/optional-viewer-auth.guard';
 import { ViewerId, ViewerSessionId } from '../auth/viewer.decorator';
+import { AccessGrantService } from '../access/access-grant.service';
 
 @Controller('viewer')
 export class ViewerEntryController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private accessGrantService: AccessGrantService,
+  ) {}
 
   @Get('entry/:publicTagId')
   @UseGuards(OptionalViewerAuthGuard)
@@ -36,7 +40,7 @@ export class ViewerEntryController {
     }
 
     // If no auth, return requiresClaim
-    if (!viewer?.sessionId) {
+    if (!sessionId) {
       return {
         requiresClaim: true,
         exhibition: {
@@ -49,7 +53,7 @@ export class ViewerEntryController {
       };
     }
 
-    if (!viewer.viewerId) {
+    if (!viewerId) {
       return {
         requiresUpgrade: true,
         exhibition: {
@@ -62,7 +66,26 @@ export class ViewerEntryController {
       };
     }
 
-    const viewerId = viewer.viewerId;
+    const grantRequired =
+      exhibition.visibility !== 'PUBLIC' || exhibition.status !== 'ACTIVE';
+    if (grantRequired) {
+      const hasGrant = await this.accessGrantService.hasValidGrantForExhibition(
+        viewerId,
+        exhibition.id,
+      );
+      if (!hasGrant) {
+        return {
+          requiresGrant: true,
+          exhibition: {
+            id: exhibition.id,
+            type: exhibition.type,
+            totalDays: exhibition.totalDays,
+            status: exhibition.status,
+            visibility: exhibition.visibility,
+          },
+        };
+      }
+    }
 
     // Find ViewerExhibitionState
     const state = await this.prisma.viewerExhibitionState.findUnique({

@@ -32,6 +32,7 @@ model Exhibition {
   nfcTags                NfcTag[]                @relation("NfcTagExhibition")
   viewerExhibitionStates ViewerExhibitionState[]
   versions               ExhibitionVersion[]
+  accessGrants           AccessGrant[]
 
   @@index([status])
   @@index([visibility])
@@ -44,6 +45,7 @@ model ViewerProfile {
   updatedAt        DateTime                @updatedAt
   exhibitionStates ViewerExhibitionState[]
   sessions         ViewerSession[]
+  accessGrants     AccessGrant[]
 }
 
 model ViewerSession {
@@ -73,6 +75,7 @@ model ExhibitionVersion {
   createdAt   DateTime             @default(now())
   exhibition  Exhibition           @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
   runs        ExhibitionRun[]
+  accessGrants AccessGrant[]
 
   @@index([exhibitionId])
 }
@@ -108,6 +111,26 @@ model ViewerExhibitionState {
   @@unique([viewerId, exhibitionId])
   @@index([viewerId])
   @@index([exhibitionId])
+}
+
+model AccessGrant {
+  id           String             @id @default(cuid())
+  viewerId     String
+  exhibitionId String?
+  versionId    String?
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  viewer       ViewerProfile      @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  exhibition   Exhibition?        @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  version      ExhibitionVersion? @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([viewerId])
+  @@index([exhibitionId])
+  @@index([versionId])
+  @@index([expiresAt])
+  @@index([revokedAt])
 }
 
 model Exhibit {

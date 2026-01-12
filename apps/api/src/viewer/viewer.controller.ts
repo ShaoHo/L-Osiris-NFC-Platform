@@ -11,10 +11,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { ViewerAuthGuard } from '../auth/viewer-auth.guard';
-import { ViewerId, ViewerSessionId } from '../auth/viewer.decorator';
-import { Viewer, ViewerId } from '../auth/viewer.decorator';
+import { Viewer, ViewerId, ViewerSessionId } from '../auth/viewer.decorator';
 import { randomBytes } from 'crypto';
 import { createHash } from 'crypto';
+import { AccessGrantService } from '../access/access-grant.service';
 
 interface ClaimDto {
   publicTagId: string;
@@ -31,7 +31,10 @@ interface UpgradeDto {
 
 @Controller('viewer')
 export class ViewerController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private accessGrantService: AccessGrantService,
+  ) {}
 
   @Post('claim')
   @HttpCode(HttpStatus.OK)
@@ -152,6 +155,18 @@ export class ViewerController {
 
     if (!exhibition) {
       throw new NotFoundException(`Exhibition not found: ${exhibitionId}`);
+    }
+
+    const grantRequired =
+      exhibition.visibility !== 'PUBLIC' || exhibition.status !== 'ACTIVE';
+    if (grantRequired) {
+      const hasGrant = await this.accessGrantService.hasValidGrantForExhibition(
+        viewerId,
+        exhibition.id,
+      );
+      if (!hasGrant) {
+        throw new BadRequestException('Access grant required to activate exhibition');
+      }
     }
 
     const now = new Date();
