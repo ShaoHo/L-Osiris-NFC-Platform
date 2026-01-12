@@ -12,6 +12,7 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import { AccessGrantService } from '../access/access-grant.service';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
+import { Prisma } from '@prisma/client';
 
 interface IssueAccessGrantPayload {
   type: 'ISSUE_ACCESS_GRANT';
@@ -124,7 +125,7 @@ export class AdminActionController {
           eventType: 'ADMIN_ACTION_CONFIRMED',
           actor: dto.confirmedBy,
           adminActionId: action.id,
-          payload,
+          payload: payload as unknown as Prisma.InputJsonValue,
         },
       });
 
@@ -196,7 +197,7 @@ export class AdminActionController {
         eventType: 'ADMIN_ACTION_EXECUTED',
         actor: dto.executedBy,
         adminActionId: action.id,
-        payload,
+        payload: payload as unknown as Prisma.InputJsonValue,
       },
     });
 

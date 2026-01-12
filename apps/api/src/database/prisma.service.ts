@@ -12,56 +12,71 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     const adapter = new PrismaPg({ connectionString: url });
     super({ adapter });
+
+    // Prisma v7: use $extends instead of $use middleware
+    const softDeleteModels = new Set([
+      "Exhibition",
+      "ExhibitionVersion",
+      "ExhibitionRun",
+      "NfcTag",
+    ]);
+
+    const addSoftDeleteFilter = (where: Record<string, unknown> | undefined) => {
+      if (where && Object.prototype.hasOwnProperty.call(where, "deletedAt")) {
+        return where;
+      }
+      return { ...(where ?? {}), deletedAt: null };
+    };
+
+    // Apply query hooks for models with soft delete
+    this.$extends({
+      query: {
+        $allModels: {
+          async findUnique({ model, args, query }) {
+            if (!softDeleteModels.has(model)) return query(args);
+            // findUnique doesn't support additional filters in Prisma query layer, so rewrite to findFirst
+            return (this as unknown as PrismaClient)[model].findFirst({
+              ...args,
+              where: addSoftDeleteFilter(args?.where as any),
+            }) as any;
+          },
+          async findUniqueOrThrow({ model, args, query }) {
+            if (!softDeleteModels.has(model)) return query(args);
+            return (this as unknown as PrismaClient)[model].findFirstOrThrow({
+              ...args,
+              where: addSoftDeleteFilter(args?.where as any),
+            }) as any;
+          },
+          async findFirst({ model, args, query }) {
+            if (!softDeleteModels.has(model)) return query(args);
+            return query({ ...args, where: addSoftDeleteFilter(args?.where as any) });
+          },
+          async findFirstOrThrow({ model, args, query }) {
+            if (!softDeleteModels.has(model)) return query(args);
+            return query({ ...args, where: addSoftDeleteFilter(args?.where as any) });
+          },
+          async findMany({ model, args, query }) {
+            if (!softDeleteModels.has(model)) return query(args);
+            return query({ ...args, where: addSoftDeleteFilter(args?.where as any) });
+          },
+          async count({ model, args, query }) {
+            if (!softDeleteModels.has(model)) return query(args);
+            return query({ ...args, where: addSoftDeleteFilter(args?.where as any) });
+          },
+          async aggregate({ model, args, query }) {
+            if (!softDeleteModels.has(model)) return query(args);
+            return query({ ...args, where: addSoftDeleteFilter(args?.where as any) });
+          },
+          async groupBy({ model, args, query }) {
+            if (!softDeleteModels.has(model)) return query(args);
+            return query({ ...args, where: addSoftDeleteFilter(args?.where as any) });
+          },
+        },
+      },
+    });
   }
 
   async onModuleInit() {
-    this.$use(async (params, next) => {
-      if (!params.model) {
-        return next(params);
-      }
-
-      const softDeleteModels = new Set([
-        "Exhibition",
-        "ExhibitionVersion",
-        "ExhibitionRun",
-        "NfcTag",
-      ]);
-
-      if (!softDeleteModels.has(params.model)) {
-        return next(params);
-      }
-
-      const addSoftDeleteFilter = (where: Record<string, unknown> | undefined) => {
-        if (where && Object.prototype.hasOwnProperty.call(where, "deletedAt")) {
-          return where;
-        }
-        return { ...(where ?? {}), deletedAt: null };
-      };
-
-      if (params.action === "findUnique" || params.action === "findUniqueOrThrow") {
-        params.action = params.action === "findUnique" ? "findFirst" : "findFirstOrThrow";
-        params.args = {
-          ...params.args,
-          where: addSoftDeleteFilter(params.args?.where),
-        };
-      }
-
-      if (
-        params.action === "findFirst" ||
-        params.action === "findFirstOrThrow" ||
-        params.action === "findMany" ||
-        params.action === "count" ||
-        params.action === "aggregate" ||
-        params.action === "groupBy"
-      ) {
-        params.args = {
-          ...params.args,
-          where: addSoftDeleteFilter(params.args?.where),
-        };
-      }
-
-      return next(params);
-    });
     await this.$connect();
   }
 

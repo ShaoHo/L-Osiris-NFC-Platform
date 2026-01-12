@@ -15,6 +15,7 @@ import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { PrismaService } from '../database/prisma.service';
 import { AiGenerationService } from '../jobs/ai-generation.service';
 import { sanitizeExhibitionHtml } from '../utils/html-sanitizer';
+import { Prisma } from '@prisma/client';
 
 interface CreateDraftDto {
   prompt: string;
@@ -126,7 +127,7 @@ export class ExhibitionDayContentAdminController {
         status: 'DRAFT',
         html: sanitizeExhibitionHtml(dto.html),
         css: dto.css ?? null,
-        assetRefs: dto.assetRefs ?? null,
+        assetRefs: dto.assetRefs ?? Prisma.DbNull,
       },
       update: {
         html: dto.html !== undefined ? sanitizeExhibitionHtml(dto.html) : undefined,

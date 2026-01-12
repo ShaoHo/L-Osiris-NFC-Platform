@@ -16,6 +16,8 @@ import { randomBytes } from 'crypto';
 import { createHash } from 'crypto';
 import { MarketingOutboxService } from '../jobs/marketing-outbox.service';
 import { AccessPolicyService } from '../access/access-policy.service';
+import { Prisma } from '@prisma/client';
+import type { ViewerProfile } from '@prisma/client';
 
 interface ClaimDto {
   publicTagId: string;
@@ -58,7 +60,7 @@ export class ViewerController {
       throw new BadRequestException(`NFC tag ${publicTagId} is not bound to an exhibition`);
     }
 
-    let viewerProfile = null;
+    let viewerProfile: ViewerProfile | null = null;
     if (displayName) {
       // Create ViewerProfile
       viewerProfile = await this.prisma.viewerProfile.create({

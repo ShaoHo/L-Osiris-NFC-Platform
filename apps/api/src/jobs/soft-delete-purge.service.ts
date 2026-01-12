@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { Queue, QueueScheduler, Worker } from "bullmq";
+import { Queue, Worker } from "bullmq";
 import { PrismaService } from "../database/prisma.service";
 
 const QUEUE_NAME = "soft-delete-purge";
@@ -10,7 +10,6 @@ const PURGE_INTERVAL_MS = 60 * 60 * 1000;
 export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SoftDeletePurgeService.name);
   private queue?: Queue;
-  private scheduler?: QueueScheduler;
   private worker?: Worker;
 
   constructor(private readonly prisma: PrismaService) {}
@@ -19,7 +18,6 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
     const connection = this.getRedisConnection();
 
     this.queue = new Queue(QUEUE_NAME, { connection });
-    this.scheduler = new QueueScheduler(QUEUE_NAME, { connection });
     this.worker = new Worker(
       QUEUE_NAME,
       async () => {
@@ -42,7 +40,6 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     await Promise.all([
       this.worker?.close(),
-      this.scheduler?.close(),
       this.queue?.close(),
     ]);
   }

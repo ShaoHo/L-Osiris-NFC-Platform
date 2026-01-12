@@ -12,6 +12,7 @@ import {
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { PrismaService } from '../database/prisma.service';
 import { AiGenerationService } from '../jobs/ai-generation.service';
+import { $Enums } from '@prisma/client';
 
 interface GenerateDraftsDto {
   prompt: string;
@@ -59,7 +60,7 @@ export class ExhibitionAiController {
       throw new BadRequestException('Invalid day range for generation');
     }
 
-    const jobs = [];
+    const jobs: Array<{ jobId: string; dayIndex: number; status: $Enums.AiGenerationJobStatus }> = [];
     for (let dayIndex = startDay; dayIndex <= endDay; dayIndex += 1) {
       const job = await this.aiGeneration.enqueueDraftJob({
         exhibitionId,

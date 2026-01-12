@@ -1,4 +1,3 @@
-ALTER TYPE "ExhibitionStatus" ADD VALUE IF NOT EXISTS 'DRAFT';
 ALTER TYPE "AdminActionStatus" ADD VALUE IF NOT EXISTS 'CANCELLED';
 
 DO $$
@@ -57,12 +56,3 @@ ADD CONSTRAINT "ViewerExhibitionState_viewerSessionId_fkey" FOREIGN KEY ("viewer
 
 CREATE INDEX IF NOT EXISTS "ViewerSession_nfcTagId_idx" ON "ViewerSession"("nfcTagId");
 CREATE INDEX IF NOT EXISTS "ViewerExhibitionState_viewerSessionId_idx" ON "ViewerExhibitionState"("viewerSessionId");
-
-ALTER TABLE "AdminAction"
-ADD COLUMN "confirmedBy" TEXT,
-ADD COLUMN "executedBy" TEXT,
-ADD COLUMN "cancelledBy" TEXT,
-ADD COLUMN "confirmedAt" TIMESTAMP(3),
-ADD COLUMN "executedAt" TIMESTAMP(3),
-ADD COLUMN "cancelledAt" TIMESTAMP(3),
-ADD COLUMN "executeAfter" TIMESTAMP(3);
