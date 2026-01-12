@@ -27,7 +27,14 @@ export class ViewerEntryController {
     // Find NfcTag by publicTagId
     const nfcTag = await this.prisma.nfcTag.findUnique({
       where: { publicTagId },
-      include: { boundExhibition: true },
+      include: {
+        boundExhibition: true,
+        curator: {
+          include: {
+            policy: true,
+          },
+        },
+      },
     });
 
     if (!nfcTag) {
@@ -37,6 +44,16 @@ export class ViewerEntryController {
     const exhibition = nfcTag.boundExhibition;
     if (!exhibition) {
       throw new NotFoundException(`NFC tag ${publicTagId} is not bound to an exhibition`);
+    }
+
+    const curatorPolicy = nfcTag.curator?.policy;
+    if (
+      curatorPolicy?.nfcScopePolicy === 'EXHIBITION_ONLY' &&
+      exhibition.type === 'ONE_TO_MANY'
+    ) {
+      throw new NotFoundException(
+        `Exhibition ${exhibition.id} is not available for this curator policy`,
+      );
     }
 
     // If no auth, return requiresClaim
