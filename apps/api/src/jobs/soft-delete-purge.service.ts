@@ -1,0 +1,104 @@
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Queue, QueueScheduler, Worker } from "bullmq";
+import { PrismaService } from "../database/prisma.service";
+
+const QUEUE_NAME = "soft-delete-purge";
+const JOB_NAME = "purge-soft-deleted-records";
+const PURGE_INTERVAL_MS = 60 * 60 * 1000;
+
+@Injectable()
+export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(SoftDeletePurgeService.name);
+  private queue?: Queue;
+  private scheduler?: QueueScheduler;
+  private worker?: Worker;
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  async onModuleInit() {
+    const connection = this.getRedisConnection();
+
+    this.queue = new Queue(QUEUE_NAME, { connection });
+    this.scheduler = new QueueScheduler(QUEUE_NAME, { connection });
+    this.worker = new Worker(
+      QUEUE_NAME,
+      async () => {
+        await this.purgeExpiredSoftDeletes();
+      },
+      { connection }
+    );
+
+    await this.queue.add(
+      JOB_NAME,
+      {},
+      {
+        repeat: { every: PURGE_INTERVAL_MS },
+        removeOnComplete: true,
+        removeOnFail: 100,
+      }
+    );
+  }
+
+  async onModuleDestroy() {
+    await Promise.all([
+      this.worker?.close(),
+      this.scheduler?.close(),
+      this.queue?.close(),
+    ]);
+  }
+
+  private getRedisConnection() {
+    const url = process.env.REDIS_URL;
+    if (!url) {
+      throw new Error("REDIS_URL is missing. Configure it for BullMQ queues.");
+    }
+
+    const parsed = new URL(url);
+    const port = parsed.port ? Number(parsed.port) : 6379;
+
+    return {
+      host: parsed.hostname,
+      port,
+      username: parsed.username || undefined,
+      password: parsed.password || undefined,
+      tls: parsed.protocol === "rediss:" ? {} : undefined,
+    };
+  }
+
+  private async purgeExpiredSoftDeletes() {
+    const now = new Date();
+
+    const results = await this.prisma.$transaction([
+      this.prisma.exhibitionRun.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.exhibitionVersion.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.exhibition.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.nfcTag.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+    ]);
+
+    const [runs, versions, exhibitions, tags] = results.map((result) => result.count);
+
+    this.logger.log(
+      `Purged soft-deleted records (runs=${runs}, versions=${versions}, exhibitions=${exhibitions}, tags=${tags}).`
+    );
+  }
+}

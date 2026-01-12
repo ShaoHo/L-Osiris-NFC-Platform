@@ -11,12 +11,16 @@ model NfcTag {
   publicTagId       String       @unique
   status            NfcTagStatus @default(ACTIVE)
   boundExhibitionId String?
+  deletedAt         DateTime?
+  purgeAfter        DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   boundExhibition   Exhibition?  @relation("NfcTagExhibition", fields: [boundExhibitionId], references: [id])
 
   @@index([publicTagId])
   @@index([boundExhibitionId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model Exhibition {
@@ -26,6 +30,8 @@ model Exhibition {
   visibility             ExhibitionVisibility    @default(DRAFT)
   status                 ExhibitionStatus        @default(ACTIVE)
   curatorId              String?
+  deletedAt              DateTime?
+  purgeAfter             DateTime?
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   exhibits               Exhibit[]
@@ -36,6 +42,8 @@ model Exhibition {
 
   @@index([status])
   @@index([visibility])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model ViewerProfile {
@@ -72,12 +80,16 @@ model ExhibitionVersion {
   totalDays   Int
   visibility  ExhibitionVisibility
   status      ExhibitionStatus
+  deletedAt   DateTime?
+  purgeAfter  DateTime?
   createdAt   DateTime             @default(now())
   exhibition  Exhibition           @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
   runs        ExhibitionRun[]
   accessGrants AccessGrant[]
 
   @@index([exhibitionId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model ExhibitionRun {
@@ -86,6 +98,8 @@ model ExhibitionRun {
   versionId       String
   startedAt       DateTime
   restartFromDay  Int
+  deletedAt       DateTime?
+  purgeAfter      DateTime?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   viewerSession   ViewerSession     @relation(fields: [viewerSessionId], references: [id], onDelete: Cascade)
@@ -93,6 +107,8 @@ model ExhibitionRun {
 
   @@index([viewerSessionId])
   @@index([versionId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model ViewerExhibitionState {
