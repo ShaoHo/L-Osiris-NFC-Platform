@@ -11,16 +11,40 @@ model NfcTag {
   publicTagId       String       @unique
   status            NfcTagStatus @default(ACTIVE)
   boundExhibitionId String?
+  curatorId         String?
   deletedAt         DateTime?
   purgeAfter        DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   boundExhibition   Exhibition?  @relation("NfcTagExhibition", fields: [boundExhibitionId], references: [id])
+  curator           Curator?     @relation(fields: [curatorId], references: [id], onDelete: SetNull)
 
   @@index([publicTagId])
   @@index([boundExhibitionId])
+  @@index([curatorId])
   @@index([deletedAt])
   @@index([purgeAfter])
+}
+
+model Curator {
+  id         String         @id @default(cuid())
+  name       String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  exhibitions Exhibition[]
+  nfcTags    NfcTag[]
+  policy     CuratorPolicy?
+}
+
+model CuratorPolicy {
+  id              String          @id @default(cuid())
+  curatorId       String          @unique
+  nfcScopePolicy  NfcScopePolicy  @default(EXHIBITION_ONLY)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  curator         Curator         @relation(fields: [curatorId], references: [id], onDelete: Cascade)
+
+  @@index([curatorId])
 }
 
 model Exhibition {
@@ -39,9 +63,11 @@ model Exhibition {
   viewerExhibitionStates ViewerExhibitionState[]
   versions               ExhibitionVersion[]
   accessGrants           AccessGrant[]
+  curator                Curator?                @relation(fields: [curatorId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([visibility])
+  @@index([curatorId])
   @@index([deletedAt])
   @@index([purgeAfter])
 }
@@ -237,6 +263,11 @@ model Exhibit {
 enum NfcTagStatus {
   ACTIVE
   INACTIVE
+}
+
+enum NfcScopePolicy {
+  EXHIBITION_ONLY
+  EXHIBITION_AND_GALLERY
 }
 
 enum ExhibitionType {

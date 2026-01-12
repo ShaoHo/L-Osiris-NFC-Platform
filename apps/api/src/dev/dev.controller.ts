@@ -22,6 +22,28 @@ export class DevController {
       throw new NotFoundException();
     }
 
+    const curator = await this.prisma.curator.upsert({
+      where: { id: 'curator_dev' },
+      create: {
+        id: 'curator_dev',
+        name: 'Dev Curator',
+      },
+      update: {
+        name: 'Dev Curator',
+      },
+    });
+
+    await this.prisma.curatorPolicy.upsert({
+      where: { curatorId: curator.id },
+      create: {
+        curatorId: curator.id,
+        nfcScopePolicy: 'EXHIBITION_AND_GALLERY',
+      },
+      update: {
+        nfcScopePolicy: 'EXHIBITION_AND_GALLERY',
+      },
+    });
+
     // Create or upsert Exhibition
     const exhibition = await this.prisma.exhibition.upsert({
       where: { id: 'exh_test123' },
@@ -31,14 +53,14 @@ export class DevController {
         totalDays: 365,
         visibility: 'PUBLIC',
         status: 'ACTIVE',
-        curatorId: 'curator_dev',
+        curatorId: curator.id,
       },
       update: {
         type: 'ONE_TO_ONE',
         totalDays: 365,
         visibility: 'PUBLIC',
         status: 'ACTIVE',
-        curatorId: 'curator_dev',
+        curatorId: curator.id,
       },
     });
 
@@ -49,10 +71,12 @@ export class DevController {
         publicTagId: 'tg_test123',
         status: 'ACTIVE',
         boundExhibitionId: exhibition.id,
+        curatorId: curator.id,
       },
       update: {
         status: 'ACTIVE',
         boundExhibitionId: exhibition.id,
+        curatorId: curator.id,
       },
     });
 
