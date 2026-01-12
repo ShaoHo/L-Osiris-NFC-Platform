@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { OptionalViewerAuthGuard } from '../auth/optional-viewer-auth.guard';
-import { ViewerId } from '../auth/viewer.decorator';
+import { Viewer } from '../auth/viewer.decorator';
 
 @Controller('viewer')
 export class ViewerEntryController {
@@ -17,7 +17,7 @@ export class ViewerEntryController {
   @UseGuards(OptionalViewerAuthGuard)
   async resolve(
     @Param('publicTagId') publicTagId: string,
-    @ViewerId() viewerId?: string,
+    @Viewer() viewer?: { viewerId?: string; sessionId?: string },
   ) {
     // Find NfcTag by publicTagId
     const nfcTag = await this.prisma.nfcTag.findUnique({
@@ -35,7 +35,7 @@ export class ViewerEntryController {
     }
 
     // If no auth, return requiresClaim
-    if (!viewerId) {
+    if (!viewer?.sessionId) {
       return {
         requiresClaim: true,
         exhibition: {
@@ -47,6 +47,21 @@ export class ViewerEntryController {
         },
       };
     }
+
+    if (!viewer.viewerId) {
+      return {
+        requiresUpgrade: true,
+        exhibition: {
+          id: exhibition.id,
+          type: exhibition.type,
+          totalDays: exhibition.totalDays,
+          status: exhibition.status,
+          visibility: exhibition.visibility,
+        },
+      };
+    }
+
+    const viewerId = viewer.viewerId;
 
     // Find ViewerExhibitionState
     const state = await this.prisma.viewerExhibitionState.findUnique({
