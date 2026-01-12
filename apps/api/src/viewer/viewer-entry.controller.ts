@@ -36,7 +36,7 @@ export class ViewerEntryController {
     }
 
     // If no auth, return requiresClaim
-    if (!viewerId) {
+    if (!viewer?.sessionId) {
       return {
         requiresClaim: true,
         exhibition: {
@@ -48,6 +48,21 @@ export class ViewerEntryController {
         },
       };
     }
+
+    if (!viewer.viewerId) {
+      return {
+        requiresUpgrade: true,
+        exhibition: {
+          id: exhibition.id,
+          type: exhibition.type,
+          totalDays: exhibition.totalDays,
+          status: exhibition.status,
+          visibility: exhibition.visibility,
+        },
+      };
+    }
+
+    const viewerId = viewer.viewerId;
 
     // Find ViewerExhibitionState
     const state = await this.prisma.viewerExhibitionState.findUnique({
