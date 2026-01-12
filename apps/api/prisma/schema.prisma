@@ -176,6 +176,47 @@ model AuditLog {
   @@index([adminActionId])
 }
 
+model User {
+  id                   String     @id @default(cuid())
+  email                String     @unique
+  name                 String?
+  passwordHash         String
+  passwordUpdatedAt    DateTime?
+  resetTokenHash       String?
+  resetTokenExpiresAt  DateTime?
+  lastLoginAt          DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  roles                UserRole[]
+
+  @@index([email])
+  @@index([resetTokenExpiresAt])
+}
+
+model Role {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  users       UserRole[]
+
+  @@index([name])
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
 model Exhibit {
   id           String            @id @default(cuid())
   exhibitionId String
