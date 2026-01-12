@@ -35,6 +35,8 @@ model Curator {
   resetTokenHash      String?
   resetTokenExpiresAt DateTime?
   lastLoginAt         DateTime?
+  deletedAt  DateTime?
+  purgeAfter DateTime?
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
   exhibitions Exhibition[]
@@ -43,17 +45,23 @@ model Curator {
 
   @@index([email])
   @@index([resetTokenExpiresAt])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model CuratorPolicy {
   id              String          @id @default(cuid())
   curatorId       String          @unique
   nfcScopePolicy  NfcScopePolicy  @default(EXHIBITION_ONLY)
+  deletedAt       DateTime?
+  purgeAfter      DateTime?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   curator         Curator         @relation(fields: [curatorId], references: [id], onDelete: Cascade)
 
   @@index([curatorId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model Exhibition {
@@ -84,11 +92,16 @@ model Exhibition {
 model ViewerProfile {
   id               String                  @id @default(cuid())
   nickname         String
+  deletedAt        DateTime?
+  purgeAfter       DateTime?
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
   exhibitionStates ViewerExhibitionState[]
   sessions         ViewerSession[]
   accessGrants     AccessGrant[]
+
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model ViewerSession {
@@ -98,6 +111,8 @@ model ViewerSession {
   displayName String?
   expiresAt DateTime
   revokedAt DateTime?
+  deletedAt DateTime?
+  purgeAfter DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   viewer    ViewerProfile? @relation(fields: [viewerId], references: [id], onDelete: Cascade)
@@ -106,6 +121,8 @@ model ViewerSession {
   @@index([viewerId])
   @@index([tokenHash])
   @@index([expiresAt])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model ExhibitionVersion {
@@ -155,6 +172,8 @@ model ViewerExhibitionState {
   activatedAt  DateTime?
   pausedAt     DateTime?
   lastDayIndex Int                    @default(1)
+  deletedAt    DateTime?
+  purgeAfter   DateTime?
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
   exhibition   Exhibition             @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
@@ -163,6 +182,8 @@ model ViewerExhibitionState {
   @@unique([viewerId, exhibitionId])
   @@index([viewerId])
   @@index([exhibitionId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model AccessGrant {
@@ -172,6 +193,8 @@ model AccessGrant {
   versionId    String?
   expiresAt    DateTime?
   revokedAt    DateTime?
+  deletedAt    DateTime?
+  purgeAfter   DateTime?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   viewer       ViewerProfile      @relation(fields: [viewerId], references: [id], onDelete: Cascade)
@@ -183,6 +206,8 @@ model AccessGrant {
   @@index([versionId])
   @@index([expiresAt])
   @@index([revokedAt])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model AdminAction {
@@ -191,9 +216,14 @@ model AdminAction {
   status      AdminActionStatus @default(PENDING)
   requestedBy String
   payload     Json?
+  deletedAt   DateTime?
+  purgeAfter  DateTime?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   auditLogs   AuditLog[]
+
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model AuditLog {
@@ -204,12 +234,16 @@ model AuditLog {
   entityId      String?
   payload       Json?
   adminActionId String?
+  deletedAt     DateTime?
+  purgeAfter    DateTime?
   createdAt     DateTime     @default(now())
   adminAction   AdminAction? @relation(fields: [adminActionId], references: [id], onDelete: SetNull)
 
   @@index([eventType])
   @@index([entityType, entityId])
   @@index([adminActionId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model User {
@@ -221,29 +255,39 @@ model User {
   resetTokenHash       String?
   resetTokenExpiresAt  DateTime?
   lastLoginAt          DateTime?
+  deletedAt            DateTime?
+  purgeAfter           DateTime?
   createdAt            DateTime   @default(now())
   updatedAt            DateTime   @updatedAt
   roles                UserRole[]
 
   @@index([email])
   @@index([resetTokenExpiresAt])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model Role {
   id          String     @id @default(cuid())
   name        String     @unique
   description String?
+  deletedAt   DateTime?
+  purgeAfter  DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   users       UserRole[]
 
   @@index([name])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model UserRole {
   id        String   @id @default(cuid())
   userId    String
   roleId    String
+  deletedAt DateTime?
+  purgeAfter DateTime?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
@@ -251,6 +295,8 @@ model UserRole {
   @@unique([userId, roleId])
   @@index([userId])
   @@index([roleId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model Exhibit {
@@ -261,6 +307,8 @@ model Exhibit {
   blocksJson   Json?
   html         String?
   css          String?
+  deletedAt    DateTime?
+  purgeAfter   DateTime?
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   exhibition   Exhibition        @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
@@ -268,6 +316,8 @@ model Exhibit {
   @@unique([exhibitionId, dayIndex])
   @@index([exhibitionId])
   @@index([exhibitionId, dayIndex])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model ExhibitionDayContent {
@@ -278,6 +328,8 @@ model ExhibitionDayContent {
   html         String?
   css          String?
   assetRefs    Json?
+  deletedAt    DateTime?
+  purgeAfter   DateTime?
   createdAt    DateTime                   @default(now())
   updatedAt    DateTime                   @updatedAt
   version      ExhibitionVersion          @relation(fields: [versionId], references: [id], onDelete: Cascade)
@@ -287,6 +339,8 @@ model ExhibitionDayContent {
   @@index([versionId])
   @@index([versionId, dayIndex])
   @@index([status])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model ExhibitionDayAsset {
@@ -295,11 +349,15 @@ model ExhibitionDayAsset {
   assetUrl     String
   thumbnailUrl String?
   usageMetadata Json?
+  deletedAt    DateTime?
+  purgeAfter   DateTime?
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
   dayContent   ExhibitionDayContent @relation(fields: [dayContentId], references: [id], onDelete: Cascade)
 
   @@index([dayContentId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model AiGenerationJob {
@@ -310,6 +368,8 @@ model AiGenerationJob {
   assetMetadata Json?
   status        AiGenerationJobStatus @default(PENDING)
   errorMessage  String?
+  deletedAt     DateTime?
+  purgeAfter    DateTime?
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
   exhibition    Exhibition           @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
@@ -317,6 +377,8 @@ model AiGenerationJob {
   @@index([exhibitionId])
   @@index([exhibitionId, dayIndex])
   @@index([status])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 model MarketingOutboxEvent {
@@ -328,12 +390,16 @@ model MarketingOutboxEvent {
   status      MarketingOutboxStatus    @default(PENDING)
   errorMessage String?
   processedAt DateTime?
+  deletedAt   DateTime?
+  purgeAfter  DateTime?
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
 
   @@index([status])
   @@index([eventType])
   @@index([contactType, contactId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
 }
 
 enum NfcTagStatus {
