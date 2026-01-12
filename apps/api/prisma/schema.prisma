@@ -18,6 +18,7 @@ model NfcTag {
   updatedAt         DateTime     @updatedAt
   boundExhibition   Exhibition?  @relation("NfcTagExhibition", fields: [boundExhibitionId], references: [id])
   curator           Curator?     @relation(fields: [curatorId], references: [id], onDelete: SetNull)
+  viewerSessions    ViewerSession[]
 
   @@index([publicTagId])
   @@index([boundExhibitionId])
@@ -30,6 +31,10 @@ model Curator {
   id         String         @id @default(cuid())
   email      String         @unique
   name       String?
+  tier       CuratorTier    @default(STANDARD)
+  payoutProfileCompleted Boolean @default(false)
+  suspendedAt DateTime?
+  suspendedReason String?
   passwordHash        String
   passwordUpdatedAt   DateTime?
   resetTokenHash      String?
@@ -69,10 +74,13 @@ model Exhibition {
   type                   ExhibitionType
   totalDays              Int
   visibility             ExhibitionVisibility    @default(DRAFT)
-  status                 ExhibitionStatus        @default(ACTIVE)
+  status                 ExhibitionStatus        @default(DRAFT)
   curatorId              String?
   deletedAt              DateTime?
   purgeAfter             DateTime?
+  governanceMaskedAt     DateTime?
+  governanceMaskReason   String?
+  monetizationEnabled    Boolean                @default(false)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   exhibits               Exhibit[]
@@ -80,6 +88,7 @@ model Exhibition {
   viewerExhibitionStates ViewerExhibitionState[]
   versions               ExhibitionVersion[]
   accessGrants           AccessGrant[]
+  aiGenerationJobs       AiGenerationJob[]
   curator                Curator?                @relation(fields: [curatorId], references: [id], onDelete: SetNull)
 
   @@index([status])
@@ -91,7 +100,7 @@ model Exhibition {
 
 model ViewerProfile {
   id               String                  @id @default(cuid())
-  nickname         String
+  nickname         String?
   deletedAt        DateTime?
   purgeAfter       DateTime?
   createdAt        DateTime                @default(now())
@@ -107,6 +116,7 @@ model ViewerProfile {
 model ViewerSession {
   id        String        @id @default(cuid())
   viewerId  String?
+  nfcTagId  String?
   tokenHash String        @unique
   displayName String?
   expiresAt DateTime
@@ -116,9 +126,12 @@ model ViewerSession {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   viewer    ViewerProfile? @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  nfcTag    NfcTag?        @relation(fields: [nfcTagId], references: [id], onDelete: SetNull)
   runs      ExhibitionRun[]
+  viewerStates ViewerExhibitionState[]
 
   @@index([viewerId])
+  @@index([nfcTagId])
   @@index([tokenHash])
   @@index([expiresAt])
   @@index([deletedAt])
@@ -166,7 +179,8 @@ model ExhibitionRun {
 
 model ViewerExhibitionState {
   id           String                 @id @default(cuid())
-  viewerId     String
+  viewerId     String?
+  viewerSessionId String
   exhibitionId String
   status       ViewerExhibitionStatus @default(ACTIVE)
   activatedAt  DateTime?
@@ -177,10 +191,12 @@ model ViewerExhibitionState {
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
   exhibition   Exhibition             @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
-  viewer       ViewerProfile          @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  viewer       ViewerProfile?         @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  viewerSession ViewerSession         @relation(fields: [viewerSessionId], references: [id], onDelete: Cascade)
 
-  @@unique([viewerId, exhibitionId])
+  @@unique([viewerSessionId, exhibitionId])
   @@index([viewerId])
+  @@index([viewerSessionId])
   @@index([exhibitionId])
   @@index([deletedAt])
   @@index([purgeAfter])
@@ -215,6 +231,13 @@ model AdminAction {
   action      String
   status      AdminActionStatus @default(PENDING)
   requestedBy String
+  confirmedBy String?
+  executedBy  String?
+  cancelledBy String?
+  confirmedAt DateTime?
+  executedAt  DateTime?
+  cancelledAt DateTime?
+  executeAfter DateTime?
   payload     Json?
   deletedAt   DateTime?
   purgeAfter  DateTime?
@@ -423,6 +446,7 @@ enum ExhibitionVisibility {
 }
 
 enum ExhibitionStatus {
+  DRAFT
   ACTIVE
   ARCHIVED
 }
@@ -437,6 +461,7 @@ enum AdminActionStatus {
   PENDING
   CONFIRMED
   EXECUTED
+  CANCELLED
 }
 
 enum ExhibitRenderMode {
@@ -470,4 +495,9 @@ enum MarketingOutboxStatus {
 enum MarketingContactType {
   VIEWER
   CURATOR
+}
+
+enum CuratorTier {
+  STANDARD
+  CREATOR
 }

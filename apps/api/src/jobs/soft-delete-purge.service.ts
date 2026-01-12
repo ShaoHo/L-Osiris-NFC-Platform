@@ -69,18 +69,6 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
     const now = new Date();
 
     const results = await this.prisma.$transaction([
-      this.prisma.auditLog.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.adminAction.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
       this.prisma.userRole.deleteMany({
         where: {
           deletedAt: { not: null },
@@ -124,12 +112,6 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
         },
       }),
       this.prisma.viewerProfile.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.accessGrant.deleteMany({
         where: {
           deletedAt: { not: null },
           purgeAfter: { lte: now },
@@ -192,8 +174,6 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
     ]);
 
     const [
-      auditLogs,
-      adminActions,
       userRoles,
       roles,
       users,
@@ -202,7 +182,6 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
       viewerStates,
       viewerSessions,
       viewerProfiles,
-      accessGrants,
       dayAssets,
       dayContents,
       exhibits,
@@ -216,9 +195,9 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(
       "Purged soft-deleted records " +
-        `(auditLogs=${auditLogs}, adminActions=${adminActions}, userRoles=${userRoles}, roles=${roles}, users=${users}, ` +
+        `(userRoles=${userRoles}, roles=${roles}, users=${users}, ` +
         `curatorPolicies=${curatorPolicies}, curators=${curators}, viewerStates=${viewerStates}, viewerSessions=${viewerSessions}, ` +
-        `viewerProfiles=${viewerProfiles}, accessGrants=${accessGrants}, dayAssets=${dayAssets}, dayContents=${dayContents}, ` +
+        `viewerProfiles=${viewerProfiles}, dayAssets=${dayAssets}, dayContents=${dayContents}, ` +
         `exhibits=${exhibits}, aiJobs=${aiJobs}, marketingEvents=${marketingEvents}, runs=${runs}, versions=${versions}, ` +
         `exhibitions=${exhibitions}, tags=${tags}).`
     );

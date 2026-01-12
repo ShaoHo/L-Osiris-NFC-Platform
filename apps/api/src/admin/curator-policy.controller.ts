@@ -57,6 +57,7 @@ export class CuratorPolicyAdminController {
         action: 'UPDATE_CURATOR_POLICY',
         status: 'PENDING',
         requestedBy: dto.requestedBy,
+        executeAfter: new Date(Date.now() + 30_000),
         payload,
       },
     });

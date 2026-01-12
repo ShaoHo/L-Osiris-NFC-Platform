@@ -7,6 +7,7 @@ import {
   Param,
   Post,
   UseGuards,
+  Body,
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { AccessGrantService } from '../access/access-grant.service';
@@ -37,10 +38,40 @@ interface UpdateCuratorPolicyPayload {
   };
 }
 
+interface ForceUnpublishPayload {
+  type: 'FORCE_UNPUBLISH_EXHIBITION';
+  data: {
+    exhibitionId: string;
+  };
+}
+
+interface SuspendCuratorPayload {
+  type: 'SUSPEND_CURATOR';
+  data: {
+    curatorId: string;
+    reason?: string | null;
+  };
+}
+
 type AdminActionPayload =
   | IssueAccessGrantPayload
   | RevokeAccessGrantPayload
-  | UpdateCuratorPolicyPayload;
+  | UpdateCuratorPolicyPayload
+  | ForceUnpublishPayload
+  | SuspendCuratorPayload;
+
+interface ConfirmAdminActionDto {
+  confirmedBy: string;
+}
+
+interface ExecuteAdminActionDto {
+  executedBy: string;
+}
+
+interface CancelAdminActionDto {
+  cancelledBy: string;
+  reason?: string | null;
+}
 
 @Controller('admin/actions')
 @UseGuards(AdminAuthGuard)
@@ -52,7 +83,10 @@ export class AdminActionController {
 
   @Post(':actionId/confirm')
   @HttpCode(HttpStatus.OK)
-  async confirm(@Param('actionId') actionId: string) {
+  async confirm(
+    @Param('actionId') actionId: string,
+    @Body() dto: ConfirmAdminActionDto,
+  ) {
     const action = await this.prisma.adminAction.findUnique({
       where: { id: actionId },
     });
@@ -65,6 +99,10 @@ export class AdminActionController {
       throw new BadRequestException('Admin action already executed');
     }
 
+    if (!dto.confirmedBy) {
+      throw new BadRequestException('confirmedBy is required');
+    }
+
     const payload = action.payload as AdminActionPayload | null;
 
     if (!payload || !('type' in payload)) {
@@ -72,41 +110,152 @@ export class AdminActionController {
     }
 
     if (action.status === 'PENDING') {
-      await this.prisma.adminAction.update({
+      const updated = await this.prisma.adminAction.update({
         where: { id: action.id },
-        data: { status: 'CONFIRMED' },
+        data: {
+          status: 'CONFIRMED',
+          confirmedAt: new Date(),
+          confirmedBy: dto.confirmedBy,
+        },
       });
 
       await this.prisma.auditLog.create({
         data: {
           eventType: 'ADMIN_ACTION_CONFIRMED',
-          actor: action.requestedBy,
+          actor: dto.confirmedBy,
           adminActionId: action.id,
           payload,
         },
       });
+
+      return {
+        id: updated.id,
+        status: updated.status,
+        confirmedAt: updated.confirmedAt,
+        executeAfter: updated.executeAfter,
+      };
+    }
+
+    return {
+      id: action.id,
+      status: action.status,
+      confirmedAt: action.confirmedAt,
+      executeAfter: action.executeAfter,
+    };
+  }
+
+  @Post(':actionId/execute')
+  @HttpCode(HttpStatus.OK)
+  async execute(
+    @Param('actionId') actionId: string,
+    @Body() dto: ExecuteAdminActionDto,
+  ) {
+    const action = await this.prisma.adminAction.findUnique({
+      where: { id: actionId },
+    });
+
+    if (!action) {
+      throw new NotFoundException(`Admin action not found: ${actionId}`);
+    }
+
+    if (action.status === 'EXECUTED') {
+      throw new BadRequestException('Admin action already executed');
+    }
+
+    if (action.status !== 'CONFIRMED') {
+      throw new BadRequestException('Admin action must be confirmed before execution');
+    }
+
+    if (!dto.executedBy) {
+      throw new BadRequestException('executedBy is required');
+    }
+
+    if (action.executeAfter && action.executeAfter > new Date()) {
+      throw new BadRequestException('Admin action is still in delay window');
+    }
+
+    const payload = action.payload as AdminActionPayload | null;
+
+    if (!payload || !('type' in payload)) {
+      throw new BadRequestException('Admin action payload is invalid');
     }
 
     const executed = await this.executeAdminAction(action, payload);
 
-    await this.prisma.adminAction.update({
+    const updated = await this.prisma.adminAction.update({
       where: { id: action.id },
-      data: { status: 'EXECUTED' },
+      data: {
+        status: 'EXECUTED',
+        executedAt: new Date(),
+        executedBy: dto.executedBy,
+      },
     });
 
     await this.prisma.auditLog.create({
       data: {
         eventType: 'ADMIN_ACTION_EXECUTED',
-        actor: action.requestedBy,
+        actor: dto.executedBy,
         adminActionId: action.id,
         payload,
       },
     });
 
     return {
-      id: action.id,
-      status: 'EXECUTED',
+      id: updated.id,
+      status: updated.status,
       result: executed,
+    };
+  }
+
+  @Post(':actionId/cancel')
+  @HttpCode(HttpStatus.OK)
+  async cancel(
+    @Param('actionId') actionId: string,
+    @Body() dto: CancelAdminActionDto,
+  ) {
+    const action = await this.prisma.adminAction.findUnique({
+      where: { id: actionId },
+    });
+
+    if (!action) {
+      throw new NotFoundException(`Admin action not found: ${actionId}`);
+    }
+
+    if (!dto.cancelledBy) {
+      throw new BadRequestException('cancelledBy is required');
+    }
+
+    if (action.status === 'EXECUTED') {
+      throw new BadRequestException('Admin action already executed');
+    }
+
+    const payload = action.payload as AdminActionPayload | null;
+
+    const updated = await this.prisma.adminAction.update({
+      where: { id: action.id },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancelledBy: dto.cancelledBy,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        eventType: 'ADMIN_ACTION_CANCELLED',
+        actor: dto.cancelledBy,
+        adminActionId: action.id,
+        payload: {
+          ...(payload ?? {}),
+          reason: dto.reason ?? null,
+        },
+      },
+    });
+
+    return {
+      id: updated.id,
+      status: updated.status,
+      cancelledAt: updated.cancelledAt,
     };
   }
 
@@ -237,6 +386,89 @@ export class AdminActionController {
         nfcScopePolicy: policy.nfcScopePolicy,
         createdAt: policy.createdAt,
         updatedAt: policy.updatedAt,
+      };
+    }
+
+    if (payload.type === 'FORCE_UNPUBLISH_EXHIBITION') {
+      const exhibition = await this.prisma.exhibition.findUnique({
+        where: { id: payload.data.exhibitionId },
+      });
+
+      if (!exhibition) {
+        throw new NotFoundException(
+          `Exhibition not found: ${payload.data.exhibitionId}`,
+        );
+      }
+
+      const updated = await this.prisma.exhibition.update({
+        where: { id: exhibition.id },
+        data: {
+          visibility: 'DRAFT',
+          status: 'ARCHIVED',
+        },
+      });
+
+      await this.prisma.auditLog.create({
+        data: {
+          eventType: 'EXHIBITION_FORCE_UNPUBLISHED',
+          actor: action.requestedBy,
+          adminActionId: action.id,
+          entityType: 'Exhibition',
+          entityId: updated.id,
+          payload: {
+            visibility: updated.visibility,
+            status: updated.status,
+          },
+        },
+      });
+
+      return {
+        id: updated.id,
+        visibility: updated.visibility,
+        status: updated.status,
+      };
+    }
+
+    if (payload.type === 'SUSPEND_CURATOR') {
+      const curator = await this.prisma.curator.findUnique({
+        where: { id: payload.data.curatorId },
+      });
+
+      if (!curator) {
+        throw new NotFoundException(
+          `Curator not found: ${payload.data.curatorId}`,
+        );
+      }
+
+      const updated = await this.prisma.curator.update({
+        where: { id: curator.id },
+        data: {
+          suspendedAt: new Date(),
+          suspendedReason: payload.data.reason ?? null,
+          tier: 'STANDARD',
+        },
+      });
+
+      await this.prisma.auditLog.create({
+        data: {
+          eventType: 'CURATOR_SUSPENDED',
+          actor: action.requestedBy,
+          adminActionId: action.id,
+          entityType: 'Curator',
+          entityId: updated.id,
+          payload: {
+            suspendedAt: updated.suspendedAt,
+            suspendedReason: updated.suspendedReason,
+            tier: updated.tier,
+          },
+        },
+      });
+
+      return {
+        id: updated.id,
+        suspendedAt: updated.suspendedAt,
+        suspendedReason: updated.suspendedReason,
+        tier: updated.tier,
       };
     }
 

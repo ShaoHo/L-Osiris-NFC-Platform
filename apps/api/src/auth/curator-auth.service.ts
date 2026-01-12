@@ -28,6 +28,10 @@ export class CuratorAuthService {
       return null;
     }
 
+    if (curator.suspendedAt) {
+      return null;
+    }
+
     const passwordValid = await this.passwordService.verifyPassword(
       password,
       curator.passwordHash,
