@@ -6,6 +6,8 @@ import { ViewerController } from './viewer/viewer.controller';
 import { ViewerEntryController } from './viewer/viewer-entry.controller';
 import { DevController } from './dev/dev.controller';
 import { DatabaseModule } from './database/database.module';
+import { AccessGrantAdminController } from './admin/access-grant.controller';
+import { AccessGrantService } from './access/access-grant.service';
 
 @Module({
   imports: [DatabaseModule],
@@ -15,7 +17,8 @@ import { DatabaseModule } from './database/database.module';
     ViewerController,
     ViewerEntryController,
     DevController,
+    AccessGrantAdminController,
   ],
-  providers: [AppService],
+  providers: [AppService, AccessGrantService],
 })
 export class AppModule {}
