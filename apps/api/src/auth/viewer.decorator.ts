@@ -16,3 +16,10 @@ export const ViewerId = createParamDecorator(
     return request.viewerId;
   },
 );
+
+export const ViewerSessionId = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.sessionId;
+  },
+);
