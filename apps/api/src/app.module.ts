@@ -4,10 +4,13 @@ import { AppService } from './app.service';
 import { HealthController } from './health.controller';
 import { ViewerController } from './viewer/viewer.controller';
 import { ViewerEntryController } from './viewer/viewer-entry.controller';
+import { NfcEntryController } from './viewer/nfc-entry.controller';
+import { GalleryController } from './viewer/gallery.controller';
 import { DevController } from './dev/dev.controller';
 import { DatabaseModule } from './database/database.module';
 import { AccessGrantAdminController } from './admin/access-grant.controller';
 import { AccessGrantService } from './access/access-grant.service';
+import { AccessPolicyService } from './access/access-policy.service';
 import { AdminActionController } from './admin/admin-action.controller';
 import { SoftDeletePurgeModule } from './jobs/soft-delete-purge.module';
 import { AdminAuthService } from './auth/admin-auth.service';
@@ -18,6 +21,9 @@ import { PasswordService } from './auth/password.service';
 import { CuratorAuthService } from './auth/curator-auth.service';
 import { MarketingOutboxModule } from './jobs/marketing-outbox.module';
 import { CuratorPolicyAdminController } from './admin/curator-policy.controller';
+import { ViewerEntryService } from './viewer/viewer-entry.service';
+import { ExhibitionAdminController } from './admin/exhibition-admin.controller';
+import { ExhibitionAiController } from './admin/exhibition-ai.controller';
 
 @Module({
   imports: [
@@ -31,19 +37,25 @@ import { CuratorPolicyAdminController } from './admin/curator-policy.controller'
     HealthController,
     ViewerController,
     ViewerEntryController,
+    NfcEntryController,
+    GalleryController,
     DevController,
     AccessGrantAdminController,
     AdminActionController,
     ExhibitionDayContentAdminController,
     CuratorPolicyAdminController,
+    ExhibitionAdminController,
+    ExhibitionAiController,
   ],
   providers: [
     AppService,
     AccessGrantService,
+    AccessPolicyService,
     AdminAuthService,
     AdminAuthGuard,
     PasswordService,
     CuratorAuthService,
+    ViewerEntryService,
   ],
 })
 export class AppModule {}

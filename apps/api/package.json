@@ -32,6 +32,7 @@
     "argon2": "^0.31.2",
     "bullmq": "^5.25.1",
     "ioredis": "^5.4.1",
+    "sanitize-html": "^2.17.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
@@ -71,6 +72,10 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^argon2$": "<rootDir>/__mocks__/argon2.ts",
+      "^bullmq$": "<rootDir>/__mocks__/bullmq.ts"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

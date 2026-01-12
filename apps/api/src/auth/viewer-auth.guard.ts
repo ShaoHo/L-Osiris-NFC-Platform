@@ -43,6 +43,7 @@ export class ViewerAuthGuard implements CanActivate {
 
     (request as any).viewerId = session.viewerId;
     (request as any).sessionId = session.id;
+    (request as any).nfcTagId = session.nfcTagId ?? null;
 
     return true;
   }

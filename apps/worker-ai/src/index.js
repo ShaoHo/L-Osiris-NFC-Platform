@@ -3,6 +3,7 @@
 import { QueueScheduler, Worker } from 'bullmq';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import sanitizeHtml from 'sanitize-html';
 
 const QUEUE_NAME = 'ai-generation';
 const JOB_NAME = 'generate-exhibition-day-draft';
@@ -143,7 +144,9 @@ function getRedisConnection() {
 
 function buildDraftContent(prompt, assetMetadata) {
   const trimmedPrompt = typeof prompt === 'string' ? prompt.trim() : '';
-  const html = `\n<section class="exhibition-day">\n  <h1>${trimmedPrompt || 'Untitled draft'}</h1>\n  <p>Generated draft content. Edit this copy to finalize the day experience.</p>\n</section>\n`.trim();
+  const html = sanitizeExhibitionHtml(
+    `\n<section class="exhibition-day">\n  <h1>${trimmedPrompt || 'Untitled draft'}</h1>\n  <p>Generated draft content. Edit this copy to finalize the day experience.</p>\n</section>\n`.trim(),
+  );
   const css = `\n.exhibition-day {\n  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;\n  padding: 24px;\n  background: #f7f7f7;\n  color: #1b1b1b;\n}\n\n.exhibition-day h1 {\n  font-size: 28px;\n  margin-bottom: 12px;\n}\n`.trim();
 
   return {
@@ -151,4 +154,49 @@ function buildDraftContent(prompt, assetMetadata) {
     css,
     assetRefs: assetMetadata ?? null,
   };
+}
+
+function sanitizeExhibitionHtml(html) {
+  return sanitizeHtml(html, {
+    allowedTags: [
+      'section',
+      'article',
+      'div',
+      'span',
+      'p',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'ul',
+      'ol',
+      'li',
+      'strong',
+      'em',
+      'b',
+      'i',
+      'u',
+      'img',
+      'video',
+      'source',
+      'a',
+      'figure',
+      'figcaption',
+      'blockquote',
+      'hr',
+      'br',
+    ],
+    allowedAttributes: {
+      a: ['href', 'title', 'target', 'rel'],
+      img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
+      video: ['src', 'poster', 'controls', 'preload', 'muted', 'loop', 'autoplay'],
+      source: ['src', 'type'],
+      '*': ['class', 'id', 'style', 'data-*'],
+    },
+    allowedSchemes: ['http', 'https', 'data'],
+    allowProtocolRelative: false,
+    disallowedTagsMode: 'discard',
+  });
 }
