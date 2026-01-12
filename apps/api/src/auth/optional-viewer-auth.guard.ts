@@ -30,6 +30,7 @@ export class OptionalViewerAuthGuard implements CanActivate {
     if (session && !session.revokedAt && session.expiresAt >= new Date()) {
       (request as any).viewerId = session.viewerId;
       (request as any).sessionId = session.id;
+      (request as any).nfcTagId = session.nfcTagId ?? null;
     }
 
     return true;

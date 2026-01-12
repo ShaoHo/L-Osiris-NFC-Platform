@@ -14,6 +14,7 @@ import {
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { PrismaService } from '../database/prisma.service';
 import { AiGenerationService } from '../jobs/ai-generation.service';
+import { sanitizeExhibitionHtml } from '../utils/html-sanitizer';
 
 interface CreateDraftDto {
   prompt: string;
@@ -123,12 +124,12 @@ export class ExhibitionDayContentAdminController {
         versionId: version.id,
         dayIndex,
         status: 'DRAFT',
-        html: dto.html ?? null,
+        html: sanitizeExhibitionHtml(dto.html),
         css: dto.css ?? null,
         assetRefs: dto.assetRefs ?? null,
       },
       update: {
-        html: dto.html ?? undefined,
+        html: dto.html !== undefined ? sanitizeExhibitionHtml(dto.html) : undefined,
         css: dto.css ?? undefined,
         assetRefs: dto.assetRefs ?? undefined,
       },
@@ -320,18 +321,32 @@ export class ExhibitionDayContentAdminController {
           versionId: newVersion.id,
           dayIndex,
           status: 'PUBLISHED',
-          html: draft.html,
+          html: sanitizeExhibitionHtml(draft.html),
           css: draft.css,
           assetRefs: draft.assetRefs ?? undefined,
         },
         update: {
-          html: draft.html,
+          html: sanitizeExhibitionHtml(draft.html),
           css: draft.css,
           assetRefs: draft.assetRefs ?? undefined,
         },
       });
 
       return { published, newVersion };
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        eventType: 'EXHIBITION_DAY_PUBLISHED',
+        actor: 'admin',
+        entityType: 'ExhibitionVersion',
+        entityId: newVersion.id,
+        payload: {
+          exhibitionId,
+          dayIndex: published.dayIndex,
+          publishedAt: published.updatedAt,
+        },
+      },
     });
 
     return {

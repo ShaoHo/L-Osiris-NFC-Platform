@@ -22,6 +22,13 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.use((req, res, next) => {
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; img-src 'self' https: data:; media-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'none'; frame-ancestors 'none'",
+    );
+    next();
+  });
   app.setGlobalPrefix("v1");
   await app.listen(process.env.PORT ? Number(process.env.PORT) : 3001);
 }
