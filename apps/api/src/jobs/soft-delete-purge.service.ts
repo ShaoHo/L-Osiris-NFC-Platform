@@ -69,6 +69,102 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
     const now = new Date();
 
     const results = await this.prisma.$transaction([
+      this.prisma.auditLog.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.adminAction.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.userRole.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.role.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.user.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.curatorPolicy.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.curator.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.viewerExhibitionState.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.viewerSession.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.viewerProfile.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.accessGrant.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.exhibitionDayAsset.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.exhibitionDayContent.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.exhibit.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.aiGenerationJob.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
+      this.prisma.marketingOutboxEvent.deleteMany({
+        where: {
+          deletedAt: { not: null },
+          purgeAfter: { lte: now },
+        },
+      }),
       this.prisma.exhibitionRun.deleteMany({
         where: {
           deletedAt: { not: null },
@@ -95,10 +191,36 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
       }),
     ]);
 
-    const [runs, versions, exhibitions, tags] = results.map((result) => result.count);
+    const [
+      auditLogs,
+      adminActions,
+      userRoles,
+      roles,
+      users,
+      curatorPolicies,
+      curators,
+      viewerStates,
+      viewerSessions,
+      viewerProfiles,
+      accessGrants,
+      dayAssets,
+      dayContents,
+      exhibits,
+      aiJobs,
+      marketingEvents,
+      runs,
+      versions,
+      exhibitions,
+      tags,
+    ] = results.map((result) => result.count);
 
     this.logger.log(
-      `Purged soft-deleted records (runs=${runs}, versions=${versions}, exhibitions=${exhibitions}, tags=${tags}).`
+      "Purged soft-deleted records " +
+        `(auditLogs=${auditLogs}, adminActions=${adminActions}, userRoles=${userRoles}, roles=${roles}, users=${users}, ` +
+        `curatorPolicies=${curatorPolicies}, curators=${curators}, viewerStates=${viewerStates}, viewerSessions=${viewerSessions}, ` +
+        `viewerProfiles=${viewerProfiles}, accessGrants=${accessGrants}, dayAssets=${dayAssets}, dayContents=${dayContents}, ` +
+        `exhibits=${exhibits}, aiJobs=${aiJobs}, marketingEvents=${marketingEvents}, runs=${runs}, versions=${versions}, ` +
+        `exhibitions=${exhibitions}, tags=${tags}).`
     );
   }
 }
