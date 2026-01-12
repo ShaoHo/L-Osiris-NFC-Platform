@@ -9,9 +9,10 @@ import { DatabaseModule } from './database/database.module';
 import { AccessGrantAdminController } from './admin/access-grant.controller';
 import { AccessGrantService } from './access/access-grant.service';
 import { AdminActionController } from './admin/admin-action.controller';
+import { SoftDeletePurgeModule } from './jobs/soft-delete-purge.module';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, SoftDeletePurgeModule],
   controllers: [
     AppController,
     HealthController,
