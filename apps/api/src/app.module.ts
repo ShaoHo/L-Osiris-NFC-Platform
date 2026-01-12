@@ -16,9 +16,15 @@ import { ExhibitionDayContentAdminController } from './admin/exhibition-day-cont
 import { AiGenerationModule } from './jobs/ai-generation.module';
 import { PasswordService } from './auth/password.service';
 import { CuratorAuthService } from './auth/curator-auth.service';
+import { MarketingOutboxModule } from './jobs/marketing-outbox.module';
 
 @Module({
-  imports: [DatabaseModule, SoftDeletePurgeModule, AiGenerationModule],
+  imports: [
+    DatabaseModule,
+    SoftDeletePurgeModule,
+    AiGenerationModule,
+    MarketingOutboxModule,
+  ],
   controllers: [
     AppController,
     HealthController,

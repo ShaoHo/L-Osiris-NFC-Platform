@@ -15,6 +15,7 @@ import { Viewer, ViewerId, ViewerSessionId } from '../auth/viewer.decorator';
 import { randomBytes } from 'crypto';
 import { createHash } from 'crypto';
 import { AccessGrantService } from '../access/access-grant.service';
+import { MarketingOutboxService } from '../jobs/marketing-outbox.service';
 
 interface ClaimDto {
   publicTagId: string;
@@ -34,6 +35,7 @@ export class ViewerController {
   constructor(
     private prisma: PrismaService,
     private accessGrantService: AccessGrantService,
+    private marketingOutboxService: MarketingOutboxService,
   ) {}
 
   @Post('claim')
@@ -61,6 +63,11 @@ export class ViewerController {
       // Create ViewerProfile
       viewerProfile = await this.prisma.viewerProfile.create({
         data: { nickname: displayName },
+      });
+
+      await this.marketingOutboxService.enqueueContactSync({
+        contactType: 'VIEWER',
+        contactId: viewerProfile.id,
       });
     }
 
@@ -118,6 +125,11 @@ export class ViewerController {
 
     const newProfile = await this.prisma.viewerProfile.create({
       data: { nickname },
+    });
+
+    await this.marketingOutboxService.enqueueContactSync({
+      contactType: 'VIEWER',
+      contactId: newProfile.id,
     });
 
     await this.prisma.viewerSession.update({
