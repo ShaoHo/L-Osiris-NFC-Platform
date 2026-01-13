@@ -189,13 +189,18 @@ export class ViewerController {
     }
 
     const now = new Date();
+    const versionWhere: Prisma.ExhibitionVersionWhereInput = {
+      exhibitionId: exhibition.id,
+      status: 'ACTIVE',
+    };
+
+    if (exhibition.visibility === 'PUBLIC') {
+      versionWhere.visibility = 'PUBLIC';
+    }
+
     const latestPublishedVersion = await this.prisma.exhibitionVersion.findFirst(
       {
-        where: {
-          exhibitionId: exhibition.id,
-          status: 'ACTIVE',
-          visibility: 'PUBLIC',
-        },
+        where: versionWhere,
         orderBy: {
           createdAt: 'desc',
         },
