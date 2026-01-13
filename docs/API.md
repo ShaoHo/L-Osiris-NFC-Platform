@@ -12,7 +12,8 @@ All routes are served with the global prefix `/v1`.
 - `POST /v1/viewer/upgrade` — attach a nickname to an existing viewer session.
 - `POST /v1/viewer/exhibitions/:exhibitionId/activate` — start or continue an exhibition run.
 - `GET /v1/viewer/entry/:publicTagId` — resolve NFC entry (viewer-aware when available).
-- `GET /v1/t/:publicTagId` — resolve NFC entry (short link alias).
+- `GET /v1/t/:publicTagId/resolve` — resolve NFC entry decision (NFC resolver contract).
+- `GET /v1/t/:publicTagId` — legacy NFC entry resolver alias (kept for backward compatibility).
 
 ## Gallery
 
