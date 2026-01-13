@@ -44,6 +44,12 @@ export class CuratorExhibitionService {
       monetizationEnabled: dto.monetizationEnabled,
     });
 
+    this.enforceMonetizationRules({
+      type: dto.type,
+      monetizationEnabled: dto.monetizationEnabled ?? false,
+      payoutProfileCompleted: curator.payoutProfileCompleted,
+    });
+
     const exhibition = await this.prisma.exhibition.create({
       data: {
         type: dto.type,
@@ -76,13 +82,6 @@ export class CuratorExhibitionService {
       throw new BadRequestException('No fields provided');
     }
 
-    this.enforceTierRestrictions({
-      curatorTier: curator.curatorTier,
-      type: dto.type,
-      visibility: dto.visibility,
-      monetizationEnabled: dto.monetizationEnabled,
-    });
-
     const exhibition = await this.prisma.exhibition.findUnique({
       where: { id: exhibitionId },
     });
@@ -90,6 +89,19 @@ export class CuratorExhibitionService {
     if (!exhibition || exhibition.curatorId !== curator.curatorId) {
       throw new NotFoundException(`Exhibition not found: ${exhibitionId}`);
     }
+
+    this.enforceTierRestrictions({
+      curatorTier: curator.curatorTier,
+      type: dto.type ?? exhibition.type,
+      visibility: dto.visibility,
+      monetizationEnabled: dto.monetizationEnabled ?? exhibition.monetizationEnabled,
+    });
+
+    this.enforceMonetizationRules({
+      type: dto.type ?? exhibition.type,
+      monetizationEnabled: dto.monetizationEnabled ?? exhibition.monetizationEnabled,
+      payoutProfileCompleted: curator.payoutProfileCompleted,
+    });
 
     const updated = await this.prisma.exhibition.update({
       where: { id: exhibitionId },
@@ -272,6 +284,28 @@ export class CuratorExhibitionService {
     if (params.monetizationEnabled) {
       throw new ForbiddenException(
         'STANDARD tier cannot enable monetization',
+      );
+    }
+  }
+
+  private enforceMonetizationRules(params: {
+    type: ExhibitionType;
+    monetizationEnabled: boolean;
+    payoutProfileCompleted: boolean;
+  }) {
+    if (!params.monetizationEnabled) {
+      return;
+    }
+
+    if (params.type !== 'ONE_TO_MANY') {
+      throw new BadRequestException(
+        'monetizationEnabled can only be true for ONE_TO_MANY exhibitions',
+      );
+    }
+
+    if (!params.payoutProfileCompleted) {
+      throw new ForbiddenException(
+        'Complete payout profile required to enable monetization',
       );
     }
   }
