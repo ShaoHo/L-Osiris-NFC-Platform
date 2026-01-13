@@ -7,7 +7,7 @@
   "scripts": {
     "build": "echo 'Build placeholder'",
     "lint": "echo 'Lint placeholder'",
-    "test": "echo 'Test placeholder'",
+    "test": "node --test",
     "dev": "node src/index.js"
   },
   "dependencies": {

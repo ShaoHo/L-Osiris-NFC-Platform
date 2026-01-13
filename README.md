@@ -66,9 +66,10 @@ APP_ENV=development
 
 Optional root `.env` is also supported.
 
-### M2 integration variables (Stripe / Mautic / AI)
+### M2 setup details (Stripe / Mautic / AI)
 
-Add these to `apps/api/.env` (or the root `.env`) as needed:
+Add these to `apps/api/.env` (or the root `.env`) as needed, then follow the
+service-specific setup notes.
 
 ```
 # Stripe (planned integration)
@@ -82,7 +83,30 @@ MAUTIC_USERNAME=mautic_user
 MAUTIC_PASSWORD=mautic_pass
 ```
 
-The AI worker currently uses the same `DATABASE_URL` + `REDIS_URL` values. If external AI providers are added, document any required API keys here.
+#### Stripe
+
+- Create a webhook in the Stripe dashboard pointing to
+  `/v1/payments/webhook` on your API host (local example:
+  `http://localhost:3001/v1/payments/webhook`).
+- Make sure your checkout session metadata includes `viewerId` and either
+  `exhibitionId` or `versionId` (plus optional `expiresAt`).
+- For local testing, the Stripe CLI can forward events:
+  `stripe listen --forward-to localhost:3001/v1/payments/webhook`.
+
+#### Mautic
+
+- Ensure the Mautic API is enabled and basic auth credentials are provisioned.
+- Run the worker with `pnpm --dir apps/worker-mautic dev` to process the
+  `marketing-outbox` queue.
+- The worker expects `DATABASE_URL` and `REDIS_URL`, in addition to the Mautic
+  credentials above.
+
+#### AI worker
+
+- Run the worker with `pnpm --dir apps/worker-ai dev` to process the
+  `ai-generation` queue.
+- The worker uses the same `DATABASE_URL` + `REDIS_URL` values as the API and
+  generates sanitized HTML drafts locally (no external AI provider required).
 
 ---
 
@@ -171,6 +195,16 @@ Both workers require the same `DATABASE_URL` and `REDIS_URL` values as the API.
 ```bash
 pnpm --dir apps/api test
 ```
+
+### Key coverage targets
+
+- Viewer regression: `apps/api/src/viewer/viewer.controller.spec.ts`
+- Access policies: `apps/api/src/access/access-policy.service.spec.ts`
+- Curator auth: `apps/api/src/auth/curator-auth.service.spec.ts`
+- Admin actions: `apps/api/src/admin/admin-action.controller.spec.ts` and
+  `apps/api/src/admin/admin-action.workflow.spec.ts`
+- Stripe webhook: `apps/api/src/payments/payments.service.spec.ts`
+- AI worker integration: `apps/worker-ai/src/worker.test.js`
 
 ### Run all workspace tests
 
