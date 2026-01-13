@@ -80,7 +80,7 @@
 | --- | --- | --- | --- |
 | Day-indexed exhibition content models | PASS | `apps/api/prisma/schema.prisma` (`Exhibit`, `ExhibitionDayContent`) | — |
 | Viewer entry/day resolution | PASS | `apps/api/src/viewer/viewer-entry.service.ts` (`resolveExhibitionEntry`) | — |
-| Curator versioning/publishing workflow | FAIL | No curator publishing workflow found | Implement version creation on publish, immutable snapshots, and archive flow. |
+| Curator versioning/publishing workflow | PASS | `apps/api/src/curator/curator-exhibition.service.ts` (`publish`) | — |
 
 ## 7. AI-Generated Content
 
