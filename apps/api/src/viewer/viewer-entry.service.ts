@@ -150,6 +150,48 @@ export class ViewerEntryService {
       latestRun.restartFromDay + daysSinceRunStart,
     );
 
+    let resolvedState = {
+      status: state.status,
+      activatedAt: state.activatedAt,
+      pausedAt: state.pausedAt,
+      lastDayIndex: state.lastDayIndex,
+    };
+
+    if (state.status !== 'PAUSED') {
+      const updates: {
+        status?: 'ACTIVE' | 'PAUSED' | 'COMPLETED';
+        pausedAt?: Date | null;
+        lastDayIndex?: number;
+      } = {};
+
+      if (dayIndex > state.lastDayIndex) {
+        updates.lastDayIndex = dayIndex;
+        resolvedState = { ...resolvedState, lastDayIndex: dayIndex };
+      }
+
+      if (dayIndex >= resolvedTotalDays && state.status !== 'COMPLETED') {
+        updates.status = 'COMPLETED';
+        updates.pausedAt = null;
+        resolvedState = {
+          ...resolvedState,
+          status: 'COMPLETED',
+          pausedAt: null,
+        };
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await this.prisma.viewerExhibitionState.update({
+          where: {
+            viewerSessionId_exhibitionId: {
+              viewerSessionId: sessionId,
+              exhibitionId: exhibition.id,
+            },
+          },
+          data: updates,
+        });
+      }
+    }
+
     const dayContent = await this.prisma.exhibitionDayContent.findUnique({
       where: {
         versionId_dayIndex_status: {
@@ -215,10 +257,10 @@ export class ViewerEntryService {
         nickname: state.viewer?.nickname ?? null,
       },
       state: {
-        status: state.status,
-        activatedAt: state.activatedAt,
-        pausedAt: state.pausedAt,
-        lastDayIndex: state.lastDayIndex,
+        status: resolvedState.status,
+        activatedAt: resolvedState.activatedAt,
+        pausedAt: resolvedState.pausedAt,
+        lastDayIndex: resolvedState.lastDayIndex,
       },
       exhibit: {
         dayIndex,
