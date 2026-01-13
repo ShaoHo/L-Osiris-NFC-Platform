@@ -35,6 +35,8 @@ import { PaymentsController } from './payments/payments.controller';
 import { PaymentsService } from './payments/payments.service';
 import { AdminActionService } from './admin/admin-action.service';
 import { AdminActionExecutionService } from './jobs/admin-action-execution.service';
+import { InternalAdminController } from './internal/internal-admin.controller';
+import { InternalAdminGuard } from './auth/internal-admin.guard';
 
 @Module({
   imports: [
@@ -62,6 +64,7 @@ import { AdminActionExecutionService } from './jobs/admin-action-execution.servi
     CuratorExhibitionDayContentController,
     CuratorExhibitionAiController,
     PaymentsController,
+    InternalAdminController,
   ],
   providers: [
     AppService,
@@ -78,6 +81,7 @@ import { AdminActionExecutionService } from './jobs/admin-action-execution.servi
     AdminActionService,
     AdminActionExecutionService,
     PaymentsService,
+    InternalAdminGuard,
   ],
 })
 export class AppModule {}

@@ -46,10 +46,29 @@ export interface EnableGovernancePolicyPayload {
   };
 }
 
+export interface UnsuspendCuratorPayload {
+  type: 'UNSUSPEND_CURATOR';
+  data: {
+    curatorId: string;
+  };
+}
+
+export interface TransferExhibitionOwnershipPayload {
+  type: 'TRANSFER_EXHIBITION_OWNERSHIP';
+  data: {
+    exhibitionId: string;
+    fromCuratorId?: string | null;
+    toCuratorId: string;
+    reason?: string | null;
+  };
+}
+
 export type AdminActionPayload =
   | IssueAccessGrantPayload
   | RevokeAccessGrantPayload
   | UpdateCuratorPolicyPayload
   | ForceUnpublishPayload
   | SuspendCuratorPayload
-  | EnableGovernancePolicyPayload;
+  | EnableGovernancePolicyPayload
+  | UnsuspendCuratorPayload
+  | TransferExhibitionOwnershipPayload;

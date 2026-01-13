@@ -282,6 +282,46 @@ export class AdminActionService {
       };
     }
 
+    if (payload.type === 'UNSUSPEND_CURATOR') {
+      const curator = await this.prisma.curator.findUnique({
+        where: { id: payload.data.curatorId },
+      });
+
+      if (!curator) {
+        throw new NotFoundException(
+          `Curator not found: ${payload.data.curatorId}`,
+        );
+      }
+
+      const updated = await this.prisma.curator.update({
+        where: { id: curator.id },
+        data: {
+          suspendedAt: null,
+          suspendedReason: null,
+        },
+      });
+
+      await this.prisma.auditLog.create({
+        data: {
+          eventType: 'CURATOR_UNSUSPENDED',
+          actor,
+          adminActionId: action.id,
+          entityType: 'Curator',
+          entityId: updated.id,
+          payload: {
+            suspendedAt: updated.suspendedAt,
+            suspendedReason: updated.suspendedReason,
+          },
+        },
+      });
+
+      return {
+        id: updated.id,
+        suspendedAt: updated.suspendedAt,
+        suspendedReason: updated.suspendedReason,
+      };
+    }
+
     if (payload.type === 'ENABLE_GOVERNANCE_POLICY') {
       const exhibition = await this.prisma.exhibition.findUnique({
         where: { id: payload.data.exhibitionId },
@@ -319,6 +359,56 @@ export class AdminActionService {
         id: updated.id,
         governanceMaskedAt: updated.governanceMaskedAt,
         governanceMaskReason: updated.governanceMaskReason,
+      };
+    }
+
+    if (payload.type === 'TRANSFER_EXHIBITION_OWNERSHIP') {
+      const exhibition = await this.prisma.exhibition.findUnique({
+        where: { id: payload.data.exhibitionId },
+      });
+
+      if (!exhibition) {
+        throw new NotFoundException(
+          `Exhibition not found: ${payload.data.exhibitionId}`,
+        );
+      }
+
+      const curator = await this.prisma.curator.findUnique({
+        where: { id: payload.data.toCuratorId },
+      });
+
+      if (!curator) {
+        throw new NotFoundException(
+          `Curator not found: ${payload.data.toCuratorId}`,
+        );
+      }
+
+      const updated = await this.prisma.exhibition.update({
+        where: { id: exhibition.id },
+        data: {
+          curatorId: payload.data.toCuratorId,
+        },
+      });
+
+      await this.prisma.auditLog.create({
+        data: {
+          eventType: 'EXHIBITION_OWNERSHIP_TRANSFERRED',
+          actor,
+          adminActionId: action.id,
+          entityType: 'Exhibition',
+          entityId: updated.id,
+          payload: {
+            fromCuratorId: exhibition.curatorId ?? null,
+            toCuratorId: updated.curatorId,
+            reason: payload.data.reason ?? null,
+          },
+        },
+      });
+
+      return {
+        id: updated.id,
+        fromCuratorId: exhibition.curatorId ?? null,
+        toCuratorId: updated.curatorId,
       };
     }
 
