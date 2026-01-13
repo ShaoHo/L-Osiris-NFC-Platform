@@ -86,7 +86,7 @@
 
 | Requirement | Status | Evidence (file/function) | Required fixes (if FAIL/PARTIAL) |
 | --- | --- | --- | --- |
-| AI job processing pipeline | PARTIAL | `apps/worker-ai/src/worker.js` processes jobs and writes drafts | Add curator-triggered job creation, asset ingestion, and failure recovery flows. |
+| AI job processing pipeline | PARTIAL | `apps/worker-ai/src/worker.js` processes jobs; `apps/api/src/curator/curator-exhibition-ai.controller.ts` and `apps/api/src/jobs/ai-generation.service.ts` trigger AI generation jobs | Expand retry/backoff coverage, add asset ingestion validation, and finish failure recovery flows. |
 | Sanitization of generated HTML | PASS | `apps/worker-ai/src/worker.js` (`sanitizeExhibitionHtml`) | — |
 
 ## 8. NFC Governance Policies
