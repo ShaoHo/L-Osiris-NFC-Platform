@@ -12,20 +12,16 @@ interface IssueGrantInput {
 export class AccessGrantService {
   constructor(private prisma: PrismaService) {}
 
-  async hasValidGrantForExhibition(viewerId: string, exhibitionId: string) {
+  async findGrantForExhibition(viewerId: string, exhibitionId: string) {
     if (!viewerId) {
-      return false;
+      return null;
     }
 
-    const now = new Date();
-    const grant = await this.prisma.accessGrant.findFirst({
+    return this.prisma.accessGrant.findFirst({
       where: {
         viewerId,
         revokedAt: null,
         AND: [
-          {
-            OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-          },
           {
             OR: [
               { exhibitionId },
@@ -38,9 +34,21 @@ export class AccessGrantService {
           },
         ],
       },
+      orderBy: { createdAt: 'desc' },
     });
+  }
 
-    return Boolean(grant);
+  async hasValidGrantForExhibition(viewerId: string, exhibitionId: string) {
+    const grant = await this.findGrantForExhibition(viewerId, exhibitionId);
+    if (!grant) {
+      return false;
+    }
+
+    if (grant.expiresAt && grant.expiresAt <= new Date()) {
+      return false;
+    }
+
+    return true;
   }
 
   async issueGrant(input: IssueGrantInput) {
