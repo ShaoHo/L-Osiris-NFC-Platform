@@ -2,7 +2,7 @@
 
 > **Status key:** PASS = fully implemented and validated; PARTIAL = implemented but missing enforcement/coverage; FAIL = not implemented.
 >
-> **Source of requirements:** The repository does not currently include the full PRD text. This checklist is derived from the PRD section headings referenced in `docs/NEXT_STEPS_EXECUTION.md`, plus the execution plan and existing system documentation. Update this checklist as the canonical PRD is added or clarified.
+> **Source of requirements:** This checklist is derived from the PRD section headings referenced in `docs/NEXT_STEPS_EXECUTION.md`, plus the execution plan and existing system documentation.
 
 ## 1. Purpose & Core Principles
 
@@ -49,8 +49,8 @@
 | Requirement | Status | Evidence (file/function) | Required fixes (if FAIL/PARTIAL) |
 | --- | --- | --- | --- |
 | Curator authentication (login/reset) | PARTIAL | `apps/api/src/auth/curator-auth.service.ts` provides validation/reset but no controller endpoints | Add HTTP endpoints for login/forgot/reset/logout and session handling. |
-| Curator CRUD for exhibitions | FAIL | No curator exhibition CRUD controllers found | Implement curator create/update/publish/archive endpoints with validation. |
-| Curator AI generation initiation | FAIL | No curator-facing job enqueue flow found | Add API endpoint to enqueue AI generation jobs tied to exhibition/version/day. |
+| Curator CRUD for exhibitions | PASS | `apps/api/src/curator/curator-exhibition.controller.ts`; `apps/api/src/curator/curator-exhibition.service.ts` | — |
+| Curator AI generation initiation | PASS | `apps/api/src/curator/curator-exhibition-ai.controller.ts`; `apps/api/src/jobs/ai-generation.service.ts` | — |
 
 ### 4.3 Super Account Role
 
@@ -71,7 +71,8 @@
 | --- | --- | --- | --- |
 | Viewer session activation creates run + state | PASS | `apps/api/src/viewer/viewer.controller.ts` (`activate`) | — |
 | Grant gating for monetized/non-public exhibitions | PASS | `apps/api/src/access/access-policy.service.ts` (`canAccessExhibition`) | — |
-| Viewer resume/continue behavior | PARTIAL | `apps/api/src/viewer/viewer.controller.ts` includes CONTINUE flow, but no pause/resume endpoints | Add explicit pause/resume endpoints and enforce state transitions. |
+| Viewer resume/continue behavior | PASS | `apps/api/src/viewer/viewer.controller.ts` (`activate`, `pause`, `resume`) | — |
+| Viewer state update endpoints | PASS | `apps/api/src/viewer/viewer.controller.ts` (`patchState`) | — |
 
 ## 6. Exhibition Structure & Time
 
@@ -108,6 +109,7 @@
 | --- | --- | --- | --- |
 | Stripe checkout and webhook handling | PARTIAL | `apps/api/src/payments/payments.service.ts` (mock session + webhook logic) | Implement real Stripe SDK integration, signature validation, and payout logic. |
 | Access grants issued on payment | PASS | `apps/api/src/payments/payments.service.ts` + `apps/api/src/access/access-grant.service.ts` | — |
+| Revenue share configuration management | PASS | `apps/api/src/admin/revenue-share.controller.ts`; `apps/api/prisma/schema.prisma` (`RevenueShareConfig`) | — |
 
 ## 11. Governance/High-Risk Actions
 
@@ -123,6 +125,7 @@
 | Soft delete fields on core models | PASS | `apps/api/prisma/schema.prisma` | — |
 | Purge worker + exclusions | PASS | `apps/api/src/jobs/soft-delete-purge.service.ts`; `docs/DATA_RETENTION.md` | — |
 | Retention policy documentation | PARTIAL | `docs/DATA_RETENTION.md` exists but lacks per-model retention durations | Add explicit retention timelines per model and legal rationale. |
+| Access grant retention exclusions | PASS | `apps/api/src/jobs/soft-delete-purge.service.ts` (financial exclusion list); `docs/DATA_RETENTION.md` | — |
 
 ## 13. Technical Architecture
 
