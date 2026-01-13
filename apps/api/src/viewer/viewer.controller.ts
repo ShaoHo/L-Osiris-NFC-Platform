@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Patch,
   Body,
   Param,
   HttpCode,
@@ -30,6 +31,11 @@ interface ActivateDto {
 
 interface UpgradeDto {
   nickname: string;
+}
+
+interface UpdateExhibitionStateDto {
+  status?: 'ACTIVE' | 'PAUSED' | 'COMPLETED';
+  lastDayIndex?: number;
 }
 
 @Controller('viewer')
@@ -332,6 +338,184 @@ export class ViewerController {
       activatedAt: state?.activatedAt,
       pausedAt: state?.pausedAt,
       lastDayIndex: state?.lastDayIndex,
+    };
+  }
+
+  @Post('exhibitions/:exhibitionId/pause')
+  @UseGuards(ViewerAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async pause(
+    @Param('exhibitionId') exhibitionId: string,
+    @ViewerId() viewerId: string | undefined,
+    @ViewerSessionId() sessionId: string,
+  ) {
+    const state = await this.prisma.viewerExhibitionState.findUnique({
+      where: {
+        viewerSessionId_exhibitionId: {
+          viewerSessionId: sessionId,
+          exhibitionId,
+        },
+      },
+    });
+
+    if (!state) {
+      throw new NotFoundException(
+        `Exhibition state not found for session: ${exhibitionId}`,
+      );
+    }
+
+    const updated = await this.prisma.viewerExhibitionState.update({
+      where: {
+        viewerSessionId_exhibitionId: {
+          viewerSessionId: sessionId,
+          exhibitionId,
+        },
+      },
+      data: {
+        viewerId: viewerId ?? undefined,
+        status: 'PAUSED',
+        pausedAt: new Date(),
+      },
+    });
+
+    return {
+      viewerId: updated.viewerId,
+      exhibitionId: updated.exhibitionId,
+      status: updated.status,
+      activatedAt: updated.activatedAt,
+      pausedAt: updated.pausedAt,
+      lastDayIndex: updated.lastDayIndex,
+    };
+  }
+
+  @Post('exhibitions/:exhibitionId/resume')
+  @UseGuards(ViewerAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async resume(
+    @Param('exhibitionId') exhibitionId: string,
+    @ViewerId() viewerId: string | undefined,
+    @ViewerSessionId() sessionId: string,
+  ) {
+    const state = await this.prisma.viewerExhibitionState.findUnique({
+      where: {
+        viewerSessionId_exhibitionId: {
+          viewerSessionId: sessionId,
+          exhibitionId,
+        },
+      },
+    });
+
+    if (!state) {
+      throw new NotFoundException(
+        `Exhibition state not found for session: ${exhibitionId}`,
+      );
+    }
+
+    const updated = await this.prisma.viewerExhibitionState.update({
+      where: {
+        viewerSessionId_exhibitionId: {
+          viewerSessionId: sessionId,
+          exhibitionId,
+        },
+      },
+      data: {
+        viewerId: viewerId ?? undefined,
+        status: 'ACTIVE',
+        pausedAt: null,
+      },
+    });
+
+    return {
+      viewerId: updated.viewerId,
+      exhibitionId: updated.exhibitionId,
+      status: updated.status,
+      activatedAt: updated.activatedAt,
+      pausedAt: updated.pausedAt,
+      lastDayIndex: updated.lastDayIndex,
+    };
+  }
+
+  @Patch('exhibitions/:exhibitionId/state')
+  @UseGuards(ViewerAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async patchState(
+    @Param('exhibitionId') exhibitionId: string,
+    @Body() dto: UpdateExhibitionStateDto,
+    @ViewerId() viewerId: string | undefined,
+    @ViewerSessionId() sessionId: string,
+  ) {
+    if (dto.status === undefined && dto.lastDayIndex === undefined) {
+      throw new BadRequestException('State update requires status or lastDayIndex');
+    }
+
+    const state = await this.prisma.viewerExhibitionState.findUnique({
+      where: {
+        viewerSessionId_exhibitionId: {
+          viewerSessionId: sessionId,
+          exhibitionId,
+        },
+      },
+    });
+
+    if (!state) {
+      throw new NotFoundException(
+        `Exhibition state not found for session: ${exhibitionId}`,
+      );
+    }
+
+    const data: {
+      viewerId?: string;
+      status?: Prisma.ViewerExhibitionStatus;
+      pausedAt?: Date | null;
+      lastDayIndex?: number;
+    } = {};
+
+    if (viewerId) {
+      data.viewerId = viewerId;
+    }
+
+    if (dto.status) {
+      const allowedStatuses: Prisma.ViewerExhibitionStatus[] = [
+        'ACTIVE',
+        'PAUSED',
+        'COMPLETED',
+      ];
+      if (!allowedStatuses.includes(dto.status as Prisma.ViewerExhibitionStatus)) {
+        throw new BadRequestException(`Invalid status: ${dto.status}`);
+      }
+      data.status = dto.status as Prisma.ViewerExhibitionStatus;
+      if (dto.status === 'PAUSED') {
+        data.pausedAt = new Date();
+      } else {
+        data.pausedAt = null;
+      }
+    }
+
+    if (dto.lastDayIndex !== undefined) {
+      const lastDayIndex = Number(dto.lastDayIndex);
+      if (!Number.isInteger(lastDayIndex) || lastDayIndex < 1) {
+        throw new BadRequestException('lastDayIndex must be a positive integer');
+      }
+      data.lastDayIndex = lastDayIndex;
+    }
+
+    const updated = await this.prisma.viewerExhibitionState.update({
+      where: {
+        viewerSessionId_exhibitionId: {
+          viewerSessionId: sessionId,
+          exhibitionId,
+        },
+      },
+      data,
+    });
+
+    return {
+      viewerId: updated.viewerId,
+      exhibitionId: updated.exhibitionId,
+      status: updated.status,
+      activatedAt: updated.activatedAt,
+      pausedAt: updated.pausedAt,
+      lastDayIndex: updated.lastDayIndex,
     };
   }
 }

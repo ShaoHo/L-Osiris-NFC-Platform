@@ -5,7 +5,7 @@ describe('ViewerEntryService', () => {
   const prisma = {
     nfcTag: { findUnique: jest.fn() },
     viewerSession: { create: jest.fn(), findUnique: jest.fn() },
-    viewerExhibitionState: { findUnique: jest.fn() },
+    viewerExhibitionState: { findUnique: jest.fn(), update: jest.fn() },
     exhibitionRun: { findFirst: jest.fn() },
     exhibitionVersion: { findUnique: jest.fn() },
     exhibitionDayContent: { findUnique: jest.fn() },
@@ -84,6 +84,15 @@ describe('ViewerEntryService', () => {
 
     expect(result.exhibit.dayIndex).toBe(3);
     expect(result.sessionToken).toEqual(expect.any(String));
+    expect(prisma.viewerExhibitionState.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'COMPLETED',
+          lastDayIndex: 3,
+          pausedAt: null,
+        }),
+      }),
+    );
 
     jest.useRealTimers();
   });
