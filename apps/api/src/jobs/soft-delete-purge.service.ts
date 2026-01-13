@@ -5,6 +5,8 @@ import { PrismaService } from "../database/prisma.service";
 const QUEUE_NAME = "soft-delete-purge";
 const JOB_NAME = "purge-soft-deleted-records";
 const PURGE_INTERVAL_MS = 60 * 60 * 1000;
+const FINANCIAL_RECORD_MODELS = ["AccessGrant"];
+const EXCLUDED_PURGE_MODELS = new Set(["AuditLog", ...FINANCIAL_RECORD_MODELS]);
 
 @Injectable()
 export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
@@ -65,138 +67,44 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
   private async purgeExpiredSoftDeletes() {
     const now = new Date();
 
-    const results = await this.prisma.$transaction([
-      this.prisma.userRole.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.role.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.user.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.curatorPolicy.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.curator.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.viewerExhibitionState.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.viewerSession.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.viewerProfile.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.exhibitionDayAsset.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.exhibitionDayContent.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.exhibit.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.aiGenerationJob.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.marketingOutboxEvent.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.exhibitionRun.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.exhibitionVersion.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.exhibition.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-      this.prisma.nfcTag.deleteMany({
-        where: {
-          deletedAt: { not: null },
-          purgeAfter: { lte: now },
-        },
-      }),
-    ]);
+    const purgeTargets = [
+      { name: "UserRole", delegate: this.prisma.userRole },
+      { name: "Role", delegate: this.prisma.role },
+      { name: "User", delegate: this.prisma.user },
+      { name: "CuratorPolicy", delegate: this.prisma.curatorPolicy },
+      { name: "Curator", delegate: this.prisma.curator },
+      { name: "ViewerExhibitionState", delegate: this.prisma.viewerExhibitionState },
+      { name: "ViewerSession", delegate: this.prisma.viewerSession },
+      { name: "ViewerProfile", delegate: this.prisma.viewerProfile },
+      { name: "ExhibitionDayAsset", delegate: this.prisma.exhibitionDayAsset },
+      { name: "ExhibitionDayContent", delegate: this.prisma.exhibitionDayContent },
+      { name: "Exhibit", delegate: this.prisma.exhibit },
+      { name: "AiGenerationJob", delegate: this.prisma.aiGenerationJob },
+      { name: "MarketingOutboxEvent", delegate: this.prisma.marketingOutboxEvent },
+      { name: "ExhibitionRun", delegate: this.prisma.exhibitionRun },
+      { name: "ExhibitionVersion", delegate: this.prisma.exhibitionVersion },
+      { name: "Exhibition", delegate: this.prisma.exhibition },
+      { name: "NfcTag", delegate: this.prisma.nfcTag },
+      { name: "AccessGrant", delegate: this.prisma.accessGrant },
+      { name: "AdminAction", delegate: this.prisma.adminAction },
+      { name: "AuditLog", delegate: this.prisma.auditLog },
+    ].filter((target) => !EXCLUDED_PURGE_MODELS.has(target.name));
 
-    const [
-      userRoles,
-      roles,
-      users,
-      curatorPolicies,
-      curators,
-      viewerStates,
-      viewerSessions,
-      viewerProfiles,
-      dayAssets,
-      dayContents,
-      exhibits,
-      aiJobs,
-      marketingEvents,
-      runs,
-      versions,
-      exhibitions,
-      tags,
-    ] = results.map((result) => result.count);
-
-    this.logger.log(
-      "Purged soft-deleted records " +
-        `(userRoles=${userRoles}, roles=${roles}, users=${users}, ` +
-        `curatorPolicies=${curatorPolicies}, curators=${curators}, viewerStates=${viewerStates}, viewerSessions=${viewerSessions}, ` +
-        `viewerProfiles=${viewerProfiles}, dayAssets=${dayAssets}, dayContents=${dayContents}, ` +
-        `exhibits=${exhibits}, aiJobs=${aiJobs}, marketingEvents=${marketingEvents}, runs=${runs}, versions=${versions}, ` +
-        `exhibitions=${exhibitions}, tags=${tags}).`
+    const results = await this.prisma.$transaction(
+      purgeTargets.map((target) =>
+        target.delegate.deleteMany({
+          where: {
+            deletedAt: { not: null },
+            purgeAfter: { lte: now },
+          },
+        })
+      )
     );
+
+    const summary = purgeTargets
+      .map((target, index) => `${target.name}=${results[index].count}`)
+      .join(", ");
+
+    this.logger.log(`Purged soft-deleted records (${summary}).`);
   }
 }
