@@ -96,4 +96,57 @@ describe('ViewerEntryService', () => {
 
     jest.useRealTimers();
   });
+
+  it('returns resume decision for active run', async () => {
+    prisma.nfcTag.findUnique.mockResolvedValue({
+      id: 'tag-1',
+      publicTagId: 'tag-1',
+      status: 'ACTIVE',
+      boundExhibition: {
+        id: 'ex-1',
+        type: 'ONE_TO_ONE',
+        totalDays: 3,
+        status: 'ACTIVE',
+        visibility: 'PUBLIC',
+      },
+      curator: { policy: null },
+    });
+    prisma.viewerSession.create.mockResolvedValue({ id: 'session-1' });
+    prisma.viewerExhibitionState.findUnique.mockResolvedValue({
+      activatedAt: new Date('2025-01-01T00:00:00Z'),
+      status: 'ACTIVE',
+      pausedAt: null,
+      lastDayIndex: 1,
+      viewer: null,
+    });
+    prisma.exhibitionRun.findFirst.mockResolvedValue({
+      id: 'run-1',
+      versionId: 'version-1',
+      viewerSessionId: 'session-1',
+      startedAt: new Date('2025-01-01T00:00:00Z'),
+      restartFromDay: 1,
+    });
+
+    accessPolicy.canAccessExhibition.mockResolvedValue({
+      allowed: true,
+      reason: 'ALLOWED',
+    });
+
+    const result = await service.resolveDecision({
+      publicTagId: 'tag-1',
+      sessionId: undefined,
+      viewerId: undefined,
+    });
+
+    expect(result).toEqual({
+      publicTagId: 'tag-1',
+      viewerSessionId: 'session-1',
+      decision: {
+        mode: 'RESUME_RUN',
+        runId: 'run-1',
+        exhibitionId: 'ex-1',
+        reason: null,
+      },
+    });
+  });
 });

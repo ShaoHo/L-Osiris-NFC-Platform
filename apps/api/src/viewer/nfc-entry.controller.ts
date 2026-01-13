@@ -7,6 +7,20 @@ import { ViewerEntryService } from './viewer-entry.service';
 export class NfcEntryController {
   constructor(private readonly viewerEntryService: ViewerEntryService) {}
 
+  @Get(':publicTagId/resolve')
+  @UseGuards(OptionalViewerAuthGuard)
+  async resolveDecision(
+    @Param('publicTagId') publicTagId: string,
+    @ViewerId() viewerId?: string,
+    @ViewerSessionId() sessionId?: string,
+  ) {
+    return this.viewerEntryService.resolveDecision({
+      publicTagId,
+      viewerId,
+      sessionId,
+    });
+  }
+
   @Get(':publicTagId')
   @UseGuards(OptionalViewerAuthGuard)
   async resolve(

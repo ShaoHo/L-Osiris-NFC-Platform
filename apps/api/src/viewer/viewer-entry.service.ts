@@ -10,6 +10,176 @@ export class ViewerEntryService {
     private readonly accessPolicyService: AccessPolicyService,
   ) {}
 
+  private async getOrCreateSession(params: {
+    nfcTagId: string;
+    viewerId?: string;
+    sessionId?: string;
+  }) {
+    if (params.sessionId) {
+      return { sessionId: params.sessionId, sessionToken: null };
+    }
+
+    const rawToken = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    const session = await this.prisma.viewerSession.create({
+      data: {
+        viewerId: params.viewerId ?? null,
+        nfcTagId: params.nfcTagId,
+        tokenHash,
+        displayName: null,
+        expiresAt,
+      },
+    });
+
+    return { sessionId: session.id, sessionToken: rawToken };
+  }
+
+  async resolveDecision(params: {
+    publicTagId: string;
+    viewerId?: string;
+    sessionId?: string;
+  }) {
+    const nfcTag = await this.prisma.nfcTag.findUnique({
+      where: { publicTagId: params.publicTagId },
+      include: {
+        boundExhibition: true,
+        curator: {
+          include: { policy: true },
+        },
+      },
+    });
+
+    if (!nfcTag) {
+      throw new NotFoundException(`NFC tag not found: ${params.publicTagId}`);
+    }
+
+    const { sessionId } = await this.getOrCreateSession({
+      nfcTagId: nfcTag.id,
+      viewerId: params.viewerId,
+      sessionId: params.sessionId,
+    });
+
+    if (nfcTag.status !== 'ACTIVE') {
+      return {
+        publicTagId: params.publicTagId,
+        viewerSessionId: sessionId,
+        decision: {
+          mode: 'DENY',
+          reason: 'TAG_INACTIVE',
+          exhibitionId: nfcTag.boundExhibition?.id ?? null,
+          runId: null,
+        },
+      };
+    }
+
+    const exhibition = nfcTag.boundExhibition;
+    if (!exhibition) {
+      return {
+        publicTagId: params.publicTagId,
+        viewerSessionId: sessionId,
+        decision: {
+          mode: 'DENY',
+          reason: 'UNBOUND',
+          exhibitionId: null,
+          runId: null,
+        },
+      };
+    }
+
+    const policy = await this.accessPolicyService.canAccessExhibition({
+      exhibitionId: exhibition.id,
+      viewerId: params.viewerId ?? null,
+      sessionId,
+    });
+
+    if (!policy.allowed) {
+      return {
+        publicTagId: params.publicTagId,
+        viewerSessionId: sessionId,
+        decision: {
+          mode: 'DENY',
+          reason: policy.reason,
+          exhibitionId: exhibition.id,
+          runId: null,
+        },
+      };
+    }
+
+    const state = await this.prisma.viewerExhibitionState.findUnique({
+      where: {
+        viewerSessionId_exhibitionId: {
+          viewerSessionId: sessionId,
+          exhibitionId: exhibition.id,
+        },
+      },
+    });
+
+    if (!state || !state.activatedAt) {
+      return {
+        publicTagId: params.publicTagId,
+        viewerSessionId: sessionId,
+        decision: {
+          mode: 'SHOW_ENTRY',
+          exhibitionId: exhibition.id,
+          runId: null,
+          reason: null,
+        },
+      };
+    }
+
+    if (state.status === 'COMPLETED') {
+      return {
+        publicTagId: params.publicTagId,
+        viewerSessionId: sessionId,
+        decision: {
+          mode: 'REDIRECT_GALLERY',
+          exhibitionId: exhibition.id,
+          runId: null,
+          reason: 'COMPLETED',
+        },
+      };
+    }
+
+    const latestRun = await this.prisma.exhibitionRun.findFirst({
+      where: {
+        viewerSessionId: sessionId,
+        version: {
+          exhibitionId: exhibition.id,
+        },
+      },
+      orderBy: {
+        startedAt: 'desc',
+      },
+    });
+
+    if (!latestRun) {
+      return {
+        publicTagId: params.publicTagId,
+        viewerSessionId: sessionId,
+        decision: {
+          mode: 'SHOW_ENTRY',
+          exhibitionId: exhibition.id,
+          runId: null,
+          reason: 'RUN_NOT_FOUND',
+        },
+      };
+    }
+
+    return {
+      publicTagId: params.publicTagId,
+      viewerSessionId: sessionId,
+      decision: {
+        mode: 'RESUME_RUN',
+        runId: latestRun.id,
+        exhibitionId: exhibition.id,
+        reason: null,
+      },
+    };
+  }
+
   async resolveEntry(params: {
     publicTagId: string;
     viewerId?: string;
@@ -36,27 +206,13 @@ export class ViewerEntryService {
       );
     }
 
-    let sessionId = params.sessionId;
-    let sessionToken: string | null = null;
-    if (!sessionId) {
-      const rawToken = randomBytes(32).toString('hex');
-      const tokenHash = createHash('sha256').update(rawToken).digest('hex');
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
-
-      const session = await this.prisma.viewerSession.create({
-        data: {
-          viewerId: params.viewerId ?? null,
-          nfcTagId: nfcTag.id,
-          tokenHash,
-          displayName: null,
-          expiresAt,
-        },
-      });
-
-      sessionId = session.id;
-      sessionToken = rawToken;
-    }
+    const sessionContext = await this.getOrCreateSession({
+      nfcTagId: nfcTag.id,
+      viewerId: params.viewerId,
+      sessionId: params.sessionId,
+    });
+    const sessionId = sessionContext.sessionId;
+    const sessionToken = sessionContext.sessionToken;
 
     const policy = await this.accessPolicyService.canAccessExhibition({
       exhibitionId: exhibition.id,
