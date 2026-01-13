@@ -33,7 +33,7 @@
 | Requirement | Status | Evidence (file/function) | Required fixes (if FAIL/PARTIAL) |
 | --- | --- | --- | --- |
 | Curator tiers (STANDARD vs CREATOR) present | PASS | `apps/api/prisma/schema.prisma` (`Curator.tier`) | — |
-| Tier restrictions enforced in API | FAIL | No enforcement guard found in API controllers/services | Implement tier-based capability checks on curator endpoints. |
+| Tier restrictions enforced in API | PARTIAL | `apps/api/src/curator/curator-exhibition.service.ts` (`enforceTierRestrictions`) | Extend tier-based capability checks to remaining curator endpoints beyond exhibition create/update/publish. |
 | Curator suspension enforcement | PARTIAL | `apps/api/src/auth/curator-auth.service.ts` blocks login when suspended | Enforce suspension in curator APIs beyond login (CRUD and publishing). |
 
 ### 4.1 Viewer Role
