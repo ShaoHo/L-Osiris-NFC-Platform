@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { CuratorExhibitionController } from './curator-exhibition.controller';
+import { CuratorExhibitionService } from './curator-exhibition.service';
 
 describe('CuratorExhibitionController', () => {
   const prisma = {
@@ -8,9 +9,17 @@ describe('CuratorExhibitionController', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    exhibitionVersion: {
+      create: jest.fn(),
+    },
+    auditLog: {
+      create: jest.fn(),
+    },
+    $transaction: jest.fn(),
   };
 
-  const controller = new CuratorExhibitionController(prisma as any);
+  const service = new CuratorExhibitionService(prisma as any);
+  const controller = new CuratorExhibitionController(service);
 
   beforeEach(() => {
     jest.resetAllMocks();
