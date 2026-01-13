@@ -76,6 +76,7 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
       { name: "Role", delegate: this.prisma.role },
       { name: "User", delegate: this.prisma.user },
       { name: "CuratorPolicy", delegate: this.prisma.curatorPolicy },
+      { name: "RevenueShareConfig", delegate: this.prisma.revenueShareConfig },
       { name: "Curator", delegate: this.prisma.curator },
       { name: "ViewerExhibitionState", delegate: this.prisma.viewerExhibitionState },
       { name: "ViewerSession", delegate: this.prisma.viewerSession },

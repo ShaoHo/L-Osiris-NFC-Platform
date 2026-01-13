@@ -47,6 +47,7 @@ model Curator {
   exhibitions Exhibition[]
   nfcTags    NfcTag[]
   policy     CuratorPolicy?
+  revenueShareConfig RevenueShareConfig?
 
   @@index([email])
   @@index([resetTokenExpiresAt])
@@ -63,6 +64,22 @@ model CuratorPolicy {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   curator         Curator         @relation(fields: [curatorId], references: [id], onDelete: Cascade)
+
+  @@index([curatorId])
+  @@index([deletedAt])
+  @@index([purgeAfter])
+}
+
+model RevenueShareConfig {
+  id               String   @id @default(cuid())
+  curatorId        String   @unique
+  curatorShareBps  Int
+  platformShareBps Int
+  deletedAt        DateTime?
+  purgeAfter       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  curator          Curator  @relation(fields: [curatorId], references: [id], onDelete: Cascade)
 
   @@index([curatorId])
   @@index([deletedAt])
