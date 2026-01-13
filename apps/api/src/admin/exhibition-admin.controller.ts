@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
+import { buildSoftDeleteData } from '../utils/soft-delete';
 
 interface AdminRequestDto {
   requestedBy: string;
@@ -203,14 +204,14 @@ export class ExhibitionAdminController {
       throw new NotFoundException(`Exhibition not found: ${exhibitionId}`);
     }
 
-    const retentionDays = dto.retentionDays ?? 30;
-    const now = new Date();
-    const purgeAfter = new Date(now.getTime() + retentionDays * 86400000);
+    const { deletedAt, purgeAfter } = buildSoftDeleteData({
+      retentionDays: dto.retentionDays,
+    });
 
     const updated = await this.prisma.exhibition.update({
       where: { id: exhibitionId },
       data: {
-        deletedAt: now,
+        deletedAt,
         purgeAfter,
       },
     });
