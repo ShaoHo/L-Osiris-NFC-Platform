@@ -24,6 +24,7 @@ import { CuratorPolicyAdminController } from './admin/curator-policy.controller'
 import { ViewerEntryService } from './viewer/viewer-entry.service';
 import { ExhibitionAdminController } from './admin/exhibition-admin.controller';
 import { ExhibitionAiController } from './admin/exhibition-ai.controller';
+import { CuratorAuthController } from './auth/curator-auth.controller';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { ExhibitionAiController } from './admin/exhibition-ai.controller';
     CuratorPolicyAdminController,
     ExhibitionAdminController,
     ExhibitionAiController,
+    CuratorAuthController,
   ],
   providers: [
     AppService,

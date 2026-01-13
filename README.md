@@ -66,6 +66,24 @@ APP_ENV=development
 
 Optional root `.env` is also supported.
 
+### M2 integration variables (Stripe / Mautic / AI)
+
+Add these to `apps/api/.env` (or the root `.env`) as needed:
+
+```
+# Stripe (planned integration)
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PLATFORM_FEE_PERCENT=10
+
+# Mautic sync (worker-mautic)
+MAUTIC_BASE_URL=https://mautic.example.com
+MAUTIC_USERNAME=mautic_user
+MAUTIC_PASSWORD=mautic_pass
+```
+
+The AI worker currently uses the same `DATABASE_URL` + `REDIS_URL` values. If external AI providers are added, document any required API keys here.
+
 ---
 
 ## Local Development
