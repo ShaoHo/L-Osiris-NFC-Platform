@@ -20,6 +20,12 @@ interface SaveDraftDto {
   assetRefs?: unknown;
 }
 
+interface CreateAssetMetadataDto {
+  assetUrl: string;
+  thumbnailUrl?: string | null;
+  usageMetadata?: unknown;
+}
+
 @Controller('curator/exhibitions/:exhibitionId')
 @UseGuards(CuratorAuthGuard)
 export class CuratorExhibitionDayContentController {
@@ -56,6 +62,22 @@ export class CuratorExhibitionDayContentController {
     }
 
     return this.dayContents.publishDay(exhibitionId, dayIndex, curator);
+  }
+
+  @Post('days/:dayIndex/assets')
+  @HttpCode(HttpStatus.CREATED)
+  async createAssetMetadata(
+    @Param('exhibitionId') exhibitionId: string,
+    @Param('dayIndex') dayIndexParam: string,
+    @Body() dto: CreateAssetMetadataDto,
+    @Curator() curator: CuratorContext,
+  ) {
+    const dayIndex = Number(dayIndexParam);
+    if (!Number.isInteger(dayIndex) || dayIndex < 1) {
+      throw new BadRequestException('dayIndex must be a positive integer');
+    }
+
+    return this.dayContents.addAssetMetadata(exhibitionId, dayIndex, dto, curator);
   }
 
   @Get('versions/:versionId/days')

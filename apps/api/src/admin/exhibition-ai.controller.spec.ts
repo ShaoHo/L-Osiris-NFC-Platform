@@ -8,7 +8,7 @@ describe('ExhibitionAiController', () => {
   };
 
   const aiGeneration = {
-    enqueueDraftJob: jest.fn(),
+    enqueueDraftJobs: jest.fn(),
   };
 
   const controller = new ExhibitionAiController(
@@ -25,9 +25,10 @@ describe('ExhibitionAiController', () => {
       id: 'ex-1',
       totalDays: 3,
     });
-    aiGeneration.enqueueDraftJob.mockImplementation(({ dayIndex }) =>
-      Promise.resolve({ id: `job-${dayIndex}`, dayIndex, status: 'PENDING' }),
-    );
+    aiGeneration.enqueueDraftJobs.mockResolvedValue([
+      { id: 'job-1', dayIndex: 1, status: 'PENDING' },
+      { id: 'job-2', dayIndex: 2, status: 'PENDING' },
+    ]);
 
     const result = await controller.generateDrafts('ex-1', {
       prompt: 'Generate',

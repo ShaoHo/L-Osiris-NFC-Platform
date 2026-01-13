@@ -7,6 +7,48 @@ import sanitizeHtml from 'sanitize-html';
 
 const QUEUE_NAME = 'ai-generation';
 const JOB_NAME = 'generate-exhibition-day-draft';
+const SANITIZE_OPTIONS = {
+  allowedTags: [
+    'section',
+    'article',
+    'div',
+    'span',
+    'p',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'ul',
+    'ol',
+    'li',
+    'strong',
+    'em',
+    'b',
+    'i',
+    'u',
+    'img',
+    'video',
+    'source',
+    'a',
+    'figure',
+    'figcaption',
+    'blockquote',
+    'hr',
+    'br',
+  ],
+  allowedAttributes: {
+    a: ['href', 'title', 'target', 'rel'],
+    img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
+    video: ['src', 'poster', 'controls', 'preload', 'muted', 'loop', 'autoplay'],
+    source: ['src', 'type'],
+    '*': ['class', 'id', 'style', 'data-*'],
+  },
+  allowedSchemes: ['http', 'https', 'data'],
+  allowProtocolRelative: false,
+  disallowedTagsMode: 'discard',
+};
 
 const logger = {
   info: (message) => console.log(`[worker-ai] ${message}`),
@@ -26,80 +68,25 @@ const worker = new Worker(
       return;
     }
 
-    const { jobId } = job.data ?? {};
-    if (!jobId) {
-      throw new Error('Missing jobId for ai generation job.');
-    }
+    const jobIds = normalizeJobIds(job.data);
+    const errors = [];
 
-    const aiJob = await prisma.aiGenerationJob.findUnique({
-      where: { id: jobId },
-    });
-
-    if (!aiJob) {
-      logger.warn(`AI job not found: ${jobId}.`);
-      return;
-    }
-
-    if (aiJob.status !== 'PENDING') {
-      logger.info(`AI job ${jobId} already handled (${aiJob.status}).`);
-      return;
-    }
-
-    await prisma.aiGenerationJob.update({
-      where: { id: jobId },
-      data: { status: 'PROCESSING', errorMessage: null },
-    });
-
-    try {
-      const { html, css, assetRefs } = buildDraftContent(aiJob.prompt, aiJob.assetMetadata);
-      const version = await prisma.exhibitionVersion.findFirst({
-        where: { exhibitionId: aiJob.exhibitionId },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      if (!version) {
-        throw new Error(`Exhibition version not found for job ${aiJob.id}`);
+    for (const jobId of jobIds) {
+      try {
+        await processAiJob(jobId);
+      } catch (error) {
+        errors.push({ jobId, error });
       }
+    }
 
-      await prisma.exhibitionDayContent.upsert({
-        where: {
-          versionId_dayIndex_status: {
-            versionId: version.id,
-            dayIndex: aiJob.dayIndex,
-            status: 'DRAFT',
-          },
-        },
-        create: {
-          versionId: version.id,
-          dayIndex: aiJob.dayIndex,
-          status: 'DRAFT',
-          html,
-          css,
-          assetRefs,
-        },
-        update: {
-          html,
-          css,
-          assetRefs,
-        },
-      });
-
-      await prisma.aiGenerationJob.update({
-        where: { id: jobId },
-        data: { status: 'COMPLETED' },
-      });
-
-      logger.info(`Generated draft content for job ${jobId}.`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-
-      await prisma.aiGenerationJob.update({
-        where: { id: jobId },
-        data: { status: 'FAILED', errorMessage: message },
-      });
-
-      logger.error(`Failed to generate draft for job ${jobId}: ${message}`);
-      throw error;
+    if (errors.length) {
+      const message = errors
+        .map(({ jobId, error }) => {
+          const detail = error instanceof Error ? error.message : 'Unknown error';
+          return `${jobId}: ${detail}`;
+        })
+        .join('; ');
+      throw new Error(`Failed AI generation jobs: ${message}`);
     }
   },
   { connection },
@@ -157,46 +144,90 @@ function buildDraftContent(prompt, assetMetadata) {
 }
 
 function sanitizeExhibitionHtml(html) {
-  return sanitizeHtml(html, {
-    allowedTags: [
-      'section',
-      'article',
-      'div',
-      'span',
-      'p',
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-      'h5',
-      'h6',
-      'ul',
-      'ol',
-      'li',
-      'strong',
-      'em',
-      'b',
-      'i',
-      'u',
-      'img',
-      'video',
-      'source',
-      'a',
-      'figure',
-      'figcaption',
-      'blockquote',
-      'hr',
-      'br',
-    ],
-    allowedAttributes: {
-      a: ['href', 'title', 'target', 'rel'],
-      img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
-      video: ['src', 'poster', 'controls', 'preload', 'muted', 'loop', 'autoplay'],
-      source: ['src', 'type'],
-      '*': ['class', 'id', 'style', 'data-*'],
-    },
-    allowedSchemes: ['http', 'https', 'data'],
-    allowProtocolRelative: false,
-    disallowedTagsMode: 'discard',
+  return sanitizeHtml(html, SANITIZE_OPTIONS);
+}
+
+function normalizeJobIds(data) {
+  if (Array.isArray(data?.jobIds) && data.jobIds.length) {
+    return data.jobIds.filter((jobId) => typeof jobId === 'string' && jobId.trim());
+  }
+
+  if (typeof data?.jobId === 'string' && data.jobId.trim()) {
+    return [data.jobId];
+  }
+
+  throw new Error('Missing jobId(s) for ai generation job.');
+}
+
+async function processAiJob(jobId) {
+  const aiJob = await prisma.aiGenerationJob.findUnique({
+    where: { id: jobId },
   });
+
+  if (!aiJob) {
+    logger.warn(`AI job not found: ${jobId}.`);
+    return;
+  }
+
+  if (aiJob.status !== 'PENDING') {
+    logger.info(`AI job ${jobId} already handled (${aiJob.status}).`);
+    return;
+  }
+
+  await prisma.aiGenerationJob.update({
+    where: { id: jobId },
+    data: { status: 'PROCESSING', errorMessage: null },
+  });
+
+  try {
+    const { html, css, assetRefs } = buildDraftContent(aiJob.prompt, aiJob.assetMetadata);
+    const version = await prisma.exhibitionVersion.findFirst({
+      where: { exhibitionId: aiJob.exhibitionId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!version) {
+      throw new Error(`Exhibition version not found for job ${aiJob.id}`);
+    }
+
+    await prisma.exhibitionDayContent.upsert({
+      where: {
+        versionId_dayIndex_status: {
+          versionId: version.id,
+          dayIndex: aiJob.dayIndex,
+          status: 'DRAFT',
+        },
+      },
+      create: {
+        versionId: version.id,
+        dayIndex: aiJob.dayIndex,
+        status: 'DRAFT',
+        html,
+        css,
+        assetRefs,
+      },
+      update: {
+        html,
+        css,
+        assetRefs,
+      },
+    });
+
+    await prisma.aiGenerationJob.update({
+      where: { id: jobId },
+      data: { status: 'COMPLETED' },
+    });
+
+    logger.info(`Generated draft content for job ${jobId}.`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+
+    await prisma.aiGenerationJob.update({
+      where: { id: jobId },
+      data: { status: 'FAILED', errorMessage: message },
+    });
+
+    logger.error(`Failed to generate draft for job ${jobId}: ${message}`);
+    throw error;
+  }
 }

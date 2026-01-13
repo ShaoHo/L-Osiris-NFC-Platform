@@ -30,6 +30,7 @@ import { CuratorAuthGuard } from './auth/curator-auth.guard';
 import { CuratorExhibitionService } from './curator/curator-exhibition.service';
 import { CuratorExhibitionDayContentController } from './curator/curator-exhibition-day-content.controller';
 import { CuratorExhibitionDayContentService } from './curator/curator-exhibition-day-content.service';
+import { CuratorExhibitionAiController } from './curator/curator-exhibition-ai.controller';
 import { PaymentsController } from './payments/payments.controller';
 import { PaymentsService } from './payments/payments.service';
 import { AdminActionService } from './admin/admin-action.service';
@@ -59,6 +60,7 @@ import { AdminActionExecutionService } from './jobs/admin-action-execution.servi
     CuratorAuthController,
     CuratorExhibitionController,
     CuratorExhibitionDayContentController,
+    CuratorExhibitionAiController,
     PaymentsController,
   ],
   providers: [

@@ -9,7 +9,8 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { AdminAuthGuard } from '../auth/admin-auth.guard';
+import { CuratorAuthGuard } from '../auth/curator-auth.guard';
+import { Curator, CuratorContext } from '../auth/curator.decorator';
 import { PrismaService } from '../database/prisma.service';
 import { AiGenerationService } from '../jobs/ai-generation.service';
 import { $Enums } from '@prisma/client';
@@ -22,9 +23,9 @@ interface GenerateDraftsDto {
   retryFailed?: boolean;
 }
 
-@Controller('admin/exhibitions/:exhibitionId/ai')
-@UseGuards(AdminAuthGuard)
-export class ExhibitionAiController {
+@Controller('curator/exhibitions/:exhibitionId/ai')
+@UseGuards(CuratorAuthGuard)
+export class CuratorExhibitionAiController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiGeneration: AiGenerationService,
@@ -35,6 +36,7 @@ export class ExhibitionAiController {
   async generateDrafts(
     @Param('exhibitionId') exhibitionId: string,
     @Body() dto: GenerateDraftsDto,
+    @Curator() curator: CuratorContext,
   ) {
     if (!dto.prompt?.trim()) {
       throw new BadRequestException('prompt is required');
@@ -44,7 +46,7 @@ export class ExhibitionAiController {
       where: { id: exhibitionId },
     });
 
-    if (!exhibition) {
+    if (!exhibition || exhibition.curatorId !== curator.curatorId) {
       throw new NotFoundException(`Exhibition not found: ${exhibitionId}`);
     }
 
