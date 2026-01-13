@@ -21,6 +21,7 @@ import { PasswordService } from './auth/password.service';
 import { CuratorAuthService } from './auth/curator-auth.service';
 import { MarketingOutboxModule } from './jobs/marketing-outbox.module';
 import { CuratorPolicyAdminController } from './admin/curator-policy.controller';
+import { RevenueShareAdminController } from './admin/revenue-share.controller';
 import { ViewerEntryService } from './viewer/viewer-entry.service';
 import { ExhibitionAdminController } from './admin/exhibition-admin.controller';
 import { ExhibitionAiController } from './admin/exhibition-ai.controller';
@@ -57,6 +58,7 @@ import { InternalAdminGuard } from './auth/internal-admin.guard';
     AdminActionController,
     ExhibitionDayContentAdminController,
     CuratorPolicyAdminController,
+    RevenueShareAdminController,
     ExhibitionAdminController,
     ExhibitionAiController,
     CuratorAuthController,
