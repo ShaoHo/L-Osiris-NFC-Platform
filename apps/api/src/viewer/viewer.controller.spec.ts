@@ -3,8 +3,8 @@ import { ViewerController } from './viewer.controller';
 describe('ViewerController', () => {
   const prisma = {
     exhibition: { findUnique: jest.fn() },
-    exhibitionVersion: { create: jest.fn() },
-    exhibitionRun: { findFirst: jest.fn(), create: jest.fn() },
+    exhibitionVersion: { findFirst: jest.fn() },
+    exhibitionRun: { create: jest.fn() },
     viewerExhibitionState: { findUnique: jest.fn(), upsert: jest.fn() },
     auditLog: { create: jest.fn() },
     $transaction: jest.fn(),
@@ -29,7 +29,7 @@ describe('ViewerController', () => {
     prisma.$transaction.mockImplementation((ops: any[]) => Promise.all(ops));
   });
 
-  it('creates a new run and version on restart', async () => {
+  it('creates a new run using latest published version on restart', async () => {
     prisma.exhibition.findUnique.mockResolvedValue({
       id: 'ex-1',
       type: 'ONE_TO_ONE',
@@ -37,7 +37,7 @@ describe('ViewerController', () => {
       visibility: 'PUBLIC',
       status: 'ACTIVE',
     });
-    prisma.exhibitionVersion.create.mockResolvedValue({ id: 'version-1' });
+    prisma.exhibitionVersion.findFirst.mockResolvedValue({ id: 'version-1' });
     prisma.exhibitionRun.create.mockResolvedValue({
       id: 'run-1',
       versionId: 'version-1',
@@ -62,7 +62,7 @@ describe('ViewerController', () => {
       'session-1',
     );
 
-    expect(prisma.exhibitionVersion.create).toHaveBeenCalled();
+    expect(prisma.exhibitionVersion.findFirst).toHaveBeenCalled();
     expect(prisma.exhibitionRun.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ versionId: 'version-1' }),
@@ -70,7 +70,7 @@ describe('ViewerController', () => {
     );
   });
 
-  it('creates a new run and reuses latest version on continue', async () => {
+  it('creates a new run using latest published version on continue', async () => {
     prisma.exhibition.findUnique.mockResolvedValue({
       id: 'ex-2',
       type: 'ONE_TO_ONE',
@@ -78,7 +78,7 @@ describe('ViewerController', () => {
       visibility: 'PUBLIC',
       status: 'ACTIVE',
     });
-    prisma.exhibitionRun.findFirst.mockResolvedValue({ versionId: 'version-2' });
+    prisma.exhibitionVersion.findFirst.mockResolvedValue({ id: 'version-2' });
     prisma.exhibitionRun.create.mockResolvedValue({
       id: 'run-2',
       versionId: 'version-2',

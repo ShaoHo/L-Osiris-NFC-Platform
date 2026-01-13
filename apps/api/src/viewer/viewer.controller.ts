@@ -183,24 +183,31 @@ export class ViewerController {
     }
 
     const now = new Date();
-    const snapshotData = {
-      exhibitionId: exhibition.id,
-      type: exhibition.type,
-      totalDays: exhibition.totalDays,
-      visibility: exhibition.visibility,
-      status: exhibition.status,
-    };
+    const latestPublishedVersion = await this.prisma.exhibitionVersion.findFirst(
+      {
+        where: {
+          exhibitionId: exhibition.id,
+          status: 'ACTIVE',
+          visibility: 'PUBLIC',
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      },
+    );
+
+    if (!latestPublishedVersion) {
+      throw new BadRequestException(
+        'No published exhibition version available to activate',
+      );
+    }
 
     if (mode === 'RESTART') {
-      const version = await this.prisma.exhibitionVersion.create({
-        data: snapshotData,
-      });
-
       const [run] = await this.prisma.$transaction([
         this.prisma.exhibitionRun.create({
           data: {
             viewerSessionId: sessionId,
-            versionId: version.id,
+            versionId: latestPublishedVersion.id,
             startedAt: now,
             restartFromDay: 1,
           },
@@ -255,27 +262,11 @@ export class ViewerController {
         },
       });
 
-      const latestRun = await this.prisma.exhibitionRun.findFirst({
-        where: {
-          viewerSessionId: sessionId,
-          version: {
-            exhibitionId,
-          },
-        },
-        orderBy: {
-          startedAt: 'desc',
-        },
-      });
-
-      const versionId =
-        latestRun?.versionId ||
-        (await this.prisma.exhibitionVersion.create({ data: snapshotData })).id;
-
       const [run] = await this.prisma.$transaction([
         this.prisma.exhibitionRun.create({
           data: {
             viewerSessionId: sessionId,
-            versionId,
+            versionId: latestPublishedVersion.id,
             startedAt: now,
             restartFromDay: existing?.lastDayIndex || 1,
           },
