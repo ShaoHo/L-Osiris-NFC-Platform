@@ -26,6 +26,10 @@ interface SuspendCuratorDto extends AdminRequestDto {
   reason?: string | null;
 }
 
+interface EnableGovernancePolicyDto extends AdminRequestDto {
+  reason?: string | null;
+}
+
 @Controller('admin')
 @UseGuards(AdminAuthGuard)
 export class ExhibitionAdminController {
@@ -107,6 +111,56 @@ export class ExhibitionAdminController {
     const action = await this.prisma.adminAction.create({
       data: {
         action: 'SUSPEND_CURATOR',
+        status: 'PENDING',
+        requestedBy: dto.requestedBy,
+        executeAfter: new Date(Date.now() + 30_000),
+        payload,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        eventType: 'ADMIN_ACTION_REQUESTED',
+        actor: dto.requestedBy,
+        adminActionId: action.id,
+        payload,
+      },
+    });
+
+    return {
+      id: action.id,
+      status: action.status,
+      requestedBy: action.requestedBy,
+      executeAfter: action.executeAfter,
+    };
+  }
+
+  @Post('exhibitions/:exhibitionId/governance/enable')
+  @HttpCode(HttpStatus.OK)
+  async requestEnableGovernancePolicy(
+    @Param('exhibitionId') exhibitionId: string,
+    @Body() dto: EnableGovernancePolicyDto,
+  ) {
+    if (!dto.requestedBy) {
+      throw new BadRequestException('requestedBy is required');
+    }
+
+    const exhibition = await this.prisma.exhibition.findUnique({
+      where: { id: exhibitionId },
+    });
+
+    if (!exhibition) {
+      throw new NotFoundException(`Exhibition not found: ${exhibitionId}`);
+    }
+
+    const payload = {
+      type: 'ENABLE_GOVERNANCE_POLICY',
+      data: { exhibitionId, reason: dto.reason ?? null },
+    } as const;
+
+    const action = await this.prisma.adminAction.create({
+      data: {
+        action: 'ENABLE_GOVERNANCE_POLICY',
         status: 'PENDING',
         requestedBy: dto.requestedBy,
         executeAfter: new Date(Date.now() + 30_000),

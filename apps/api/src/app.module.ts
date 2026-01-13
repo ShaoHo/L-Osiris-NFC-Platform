@@ -32,6 +32,8 @@ import { CuratorExhibitionDayContentController } from './curator/curator-exhibit
 import { CuratorExhibitionDayContentService } from './curator/curator-exhibition-day-content.service';
 import { PaymentsController } from './payments/payments.controller';
 import { PaymentsService } from './payments/payments.service';
+import { AdminActionService } from './admin/admin-action.service';
+import { AdminActionExecutionService } from './jobs/admin-action-execution.service';
 
 @Module({
   imports: [
@@ -71,6 +73,8 @@ import { PaymentsService } from './payments/payments.service';
     CuratorExhibitionService,
     CuratorExhibitionDayContentService,
     ViewerEntryService,
+    AdminActionService,
+    AdminActionExecutionService,
     PaymentsService,
   ],
 })

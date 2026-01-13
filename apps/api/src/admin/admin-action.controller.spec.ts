@@ -22,14 +22,18 @@ describe('AdminActionController', () => {
     },
   };
 
-  const accessGrantService = {
-    issueGrant: jest.fn(),
-    revokeGrant: jest.fn(),
+  const adminActionService = {
+    executeAction: jest.fn(),
+  };
+
+  const adminActionExecutionService = {
+    scheduleExecution: jest.fn(),
   };
 
   const controller = new AdminActionController(
     prisma as any,
-    accessGrantService as any,
+    adminActionService as any,
+    adminActionExecutionService as any,
   );
 
   beforeEach(() => {
@@ -80,10 +84,12 @@ describe('AdminActionController', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    prisma.adminAction.update.mockResolvedValue({
-      id: 'action-3',
-      status: 'EXECUTED',
-      executedAt: new Date(),
+    adminActionService.executeAction.mockResolvedValue({
+      action: {
+        id: 'action-3',
+        status: 'EXECUTED',
+      },
+      result: { id: 'policy-1' },
     });
 
     await expect(
