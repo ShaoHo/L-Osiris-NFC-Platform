@@ -501,6 +501,41 @@ export class ViewerController {
       if (!Number.isInteger(lastDayIndex) || lastDayIndex < 1) {
         throw new BadRequestException('lastDayIndex must be a positive integer');
       }
+      let resolvedTotalDays: number | undefined;
+      const exhibition = await this.prisma.exhibition.findUnique({
+        where: { id: exhibitionId },
+        select: { totalDays: true },
+      });
+
+      if (exhibition) {
+        resolvedTotalDays = exhibition.totalDays;
+      } else {
+        const latestActiveVersion =
+          await this.prisma.exhibitionVersion.findFirst({
+            where: {
+              exhibitionId,
+              status: 'ACTIVE',
+            },
+            orderBy: {
+              createdAt: 'desc',
+            },
+            select: {
+              totalDays: true,
+            },
+          });
+
+        if (!latestActiveVersion) {
+          throw new NotFoundException(`Exhibition not found: ${exhibitionId}`);
+        }
+
+        resolvedTotalDays = latestActiveVersion.totalDays;
+      }
+
+      if (lastDayIndex > resolvedTotalDays) {
+        throw new BadRequestException(
+          'lastDayIndex exceeds totalDays for exhibition',
+        );
+      }
       data.lastDayIndex = lastDayIndex;
     }
 
