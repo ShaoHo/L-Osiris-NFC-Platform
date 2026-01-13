@@ -125,6 +125,23 @@ export class CuratorExhibitionService {
     }
 
     const { updated, version } = await this.prisma.$transaction(async (tx) => {
+      const latestVersion = await tx.exhibitionVersion.findFirst({
+        where: { exhibitionId },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const draftContents = latestVersion
+        ? await tx.exhibitionDayContent.findMany({
+            where: {
+              versionId: latestVersion.id,
+              status: 'DRAFT',
+            },
+            include: {
+              assets: true,
+            },
+          })
+        : [];
+
       const updated = await tx.exhibition.update({
         where: { id: exhibitionId },
         data: {
@@ -142,6 +159,30 @@ export class CuratorExhibitionService {
           status: updated.status,
         },
       });
+
+      for (const content of draftContents) {
+        const created = await tx.exhibitionDayContent.create({
+          data: {
+            versionId: version.id,
+            dayIndex: content.dayIndex,
+            status: 'PUBLISHED',
+            html: content.html,
+            css: content.css,
+            assetRefs: content.assetRefs ?? undefined,
+          },
+        });
+
+        if (content.assets.length) {
+          await tx.exhibitionDayAsset.createMany({
+            data: content.assets.map((asset) => ({
+              dayContentId: created.id,
+              assetUrl: asset.assetUrl,
+              thumbnailUrl: asset.thumbnailUrl ?? undefined,
+              usageMetadata: asset.usageMetadata ?? undefined,
+            })),
+          });
+        }
+      }
 
       return { updated, version };
     });
