@@ -310,13 +310,21 @@ export class CuratorExhibitionDayContentService {
       throw new NotFoundException(`Exhibition not found: ${exhibitionId}`);
     }
 
-    const version = await this.prisma.exhibitionVersion.findFirst({
+    let version = await this.prisma.exhibitionVersion.findFirst({
       where: { exhibitionId },
       orderBy: { createdAt: 'desc' },
     });
 
     if (!version) {
-      throw new NotFoundException(`Exhibition version not found: ${exhibitionId}`);
+      version = await this.prisma.exhibitionVersion.create({
+        data: {
+          exhibitionId: exhibition.id,
+          type: exhibition.type,
+          totalDays: exhibition.totalDays,
+          visibility: exhibition.visibility,
+          status: exhibition.status,
+        },
+      });
     }
 
     return { exhibition, version };
