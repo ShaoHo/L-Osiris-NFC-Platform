@@ -89,13 +89,19 @@ export class AccessPolicyService {
       return { allowed: false, reason: 'GRANT_REQUIRED' };
     }
 
-    const hasGrant = await this.accessGrantService.hasValidGrantForExhibition(
+    const grant = await this.accessGrantService.findGrantForExhibition(
       params.viewerId,
       exhibition.id,
     );
 
-    return hasGrant
-      ? { allowed: true, reason: 'ALLOWED' }
-      : { allowed: false, reason: 'GRANT_REQUIRED' };
+    if (!grant) {
+      return { allowed: false, reason: 'GRANT_REQUIRED' };
+    }
+
+    if (grant.expiresAt && grant.expiresAt <= new Date()) {
+      return { allowed: false, reason: 'GRANT_REQUIRED' };
+    }
+
+    return { allowed: true, reason: 'ALLOWED' };
   }
 }
