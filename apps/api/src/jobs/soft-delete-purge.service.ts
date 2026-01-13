@@ -18,6 +18,10 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     const connection = this.getRedisConnection();
+    if (!connection) {
+      this.logger.warn("Redis not configured; skipping soft-delete purge queue initialization.");
+      return;
+    }
 
     this.queue = new Queue(QUEUE_NAME, { connection });
     this.worker = new Worker(
@@ -49,7 +53,7 @@ export class SoftDeletePurgeService implements OnModuleInit, OnModuleDestroy {
   private getRedisConnection() {
     const url = process.env.REDIS_URL;
     if (!url) {
-      throw new Error("REDIS_URL is missing. Configure it for BullMQ queues.");
+      return null;
     }
 
     const parsed = new URL(url);

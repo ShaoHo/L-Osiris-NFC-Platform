@@ -16,6 +16,10 @@ export class AdminActionExecutionService implements OnModuleInit, OnModuleDestro
 
   async onModuleInit() {
     const connection = this.getRedisConnection();
+    if (!connection) {
+      this.logger.warn('Redis not configured; skipping admin action queue initialization.');
+      return;
+    }
 
     this.queue = new Queue(QUEUE_NAME, { connection });
     this.worker = new Worker(
@@ -74,7 +78,7 @@ export class AdminActionExecutionService implements OnModuleInit, OnModuleDestro
   private getRedisConnection() {
     const url = process.env.REDIS_URL;
     if (!url) {
-      throw new Error('REDIS_URL is missing. Configure it for BullMQ queues.');
+      return null;
     }
 
     const parsed = new URL(url);

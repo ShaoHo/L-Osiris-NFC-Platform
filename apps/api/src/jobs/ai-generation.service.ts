@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../database/prisma.service';
 
@@ -7,12 +7,17 @@ const JOB_NAME = 'generate-exhibition-day-draft';
 
 @Injectable()
 export class AiGenerationService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(AiGenerationService.name);
   private queue?: Queue;
 
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
     const connection = this.getRedisConnection();
+    if (!connection) {
+      this.logger.warn('Redis not configured; skipping AI generation queue initialization.');
+      return;
+    }
 
     this.queue = new Queue(QUEUE_NAME, { connection });
   }
@@ -83,6 +88,11 @@ export class AiGenerationService implements OnModuleInit, OnModuleDestroy {
       }),
     );
 
+    if (!this.queue) {
+      this.logger.warn('AI generation queue not initialized; skipping job enqueue.');
+      return jobs;
+    }
+
     await this.queue?.addBulk(
       jobs.map((job) => ({
         name: JOB_NAME,
@@ -97,7 +107,7 @@ export class AiGenerationService implements OnModuleInit, OnModuleDestroy {
   private getRedisConnection() {
     const url = process.env.REDIS_URL;
     if (!url) {
-      throw new Error('REDIS_URL is missing. Configure it for BullMQ queues.');
+      return null;
     }
 
     const parsed = new URL(url);
