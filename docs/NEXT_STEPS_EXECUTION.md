@@ -32,6 +32,14 @@ Reviewed the following files and current behaviors:
 - Stripe Connect integration requires new environment variables and webhook endpoints that are not yet wired in the current codebase.
 - AI generation output remains sanitized static HTML/CSS only, with CSP enforcement handled on the frontend viewer app (to be confirmed).
 
+## Content Security Policy (CSP) Strategy
+
+- The API sets a strict CSP header on every response to ensure exhibition HTML is treated as static content with no script execution or inline JavaScript.
+- `script-src 'none'` blocks all scripts; no inline scripts, external JS, or eval are allowed.
+- `style-src 'self' 'unsafe-inline'` allows inline CSS for curated HTML/CSS rendering while keeping scripts disallowed.
+- `img-src` and `media-src` allow HTTPS and data URLs for assets referenced by curated content.
+- Sanitization for ExhibitionDayContent in both the API and worker removes script tags and disallowed attributes, matching the allowlist defined in `apps/worker-ai/src/index.js`.
+
 ## PRD Comparison Table (Sections 1–9)
 
 | PRD Area | Status | Notes |

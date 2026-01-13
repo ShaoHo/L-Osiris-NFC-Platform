@@ -28,6 +28,8 @@ import { CuratorAuthController } from './auth/curator-auth.controller';
 import { CuratorExhibitionController } from './curator/curator-exhibition.controller';
 import { CuratorAuthGuard } from './auth/curator-auth.guard';
 import { CuratorExhibitionService } from './curator/curator-exhibition.service';
+import { CuratorExhibitionDayContentController } from './curator/curator-exhibition-day-content.controller';
+import { CuratorExhibitionDayContentService } from './curator/curator-exhibition-day-content.service';
 
 @Module({
   imports: [
@@ -52,6 +54,7 @@ import { CuratorExhibitionService } from './curator/curator-exhibition.service';
     ExhibitionAiController,
     CuratorAuthController,
     CuratorExhibitionController,
+    CuratorExhibitionDayContentController,
   ],
   providers: [
     AppService,
@@ -63,6 +66,7 @@ import { CuratorExhibitionService } from './curator/curator-exhibition.service';
     PasswordService,
     CuratorAuthService,
     CuratorExhibitionService,
+    CuratorExhibitionDayContentService,
     ViewerEntryService,
   ],
 })
