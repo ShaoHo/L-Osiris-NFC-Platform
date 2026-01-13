@@ -232,7 +232,7 @@ model AccessGrant {
   updatedAt    DateTime           @updatedAt
   viewer       ViewerProfile      @relation(fields: [viewerId], references: [id], onDelete: Cascade)
   exhibition   Exhibition?        @relation(fields: [exhibitionId], references: [id], onDelete: SetNull)
-  version      ExhibitionVersion? @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  version      ExhibitionVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
 
   @@index([viewerId])
   @@index([exhibitionId])
