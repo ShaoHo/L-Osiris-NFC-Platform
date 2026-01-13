@@ -20,6 +20,7 @@ import { Prisma } from '@prisma/client';
 interface CreateDraftDto {
   prompt: string;
   assetMetadata?: unknown;
+  retryFailed?: boolean;
 }
 
 interface EditDraftDto {
@@ -84,6 +85,7 @@ export class ExhibitionDayContentAdminController {
       dayIndex,
       prompt: dto.prompt.trim(),
       assetMetadata: dto.assetMetadata,
+      retryFailed: dto.retryFailed,
     });
 
     return {

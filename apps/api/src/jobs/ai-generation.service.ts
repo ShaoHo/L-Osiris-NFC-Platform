@@ -26,20 +26,72 @@ export class AiGenerationService implements OnModuleInit, OnModuleDestroy {
     dayIndex: number;
     prompt: string;
     assetMetadata?: unknown;
+    retryFailed?: boolean;
   }) {
-    const job = await this.prisma.aiGenerationJob.create({
-      data: {
-        exhibitionId: params.exhibitionId,
-        dayIndex: params.dayIndex,
-        prompt: params.prompt,
-        assetMetadata: params.assetMetadata ?? undefined,
-        status: 'PENDING',
-      },
+    const [job] = await this.enqueueDraftJobs({
+      exhibitionId: params.exhibitionId,
+      dayIndices: [params.dayIndex],
+      prompt: params.prompt,
+      assetMetadata: params.assetMetadata,
+      retryFailed: params.retryFailed,
     });
 
-    await this.queue?.add(JOB_NAME, { jobId: job.id }, { removeOnComplete: true, removeOnFail: 100 });
-
     return job;
+  }
+
+  async enqueueDraftJobs(params: {
+    exhibitionId: string;
+    dayIndices: number[];
+    prompt: string;
+    assetMetadata?: unknown;
+    retryFailed?: boolean;
+  }) {
+    const jobs = await Promise.all(
+      params.dayIndices.map(async (dayIndex) => {
+        const existingFailed = params.retryFailed
+          ? await this.prisma.aiGenerationJob.findFirst({
+              where: {
+                exhibitionId: params.exhibitionId,
+                dayIndex,
+                status: 'FAILED',
+              },
+              orderBy: { createdAt: 'desc' },
+            })
+          : null;
+
+        if (existingFailed) {
+          return this.prisma.aiGenerationJob.update({
+            where: { id: existingFailed.id },
+            data: {
+              status: 'PENDING',
+              errorMessage: null,
+              prompt: params.prompt,
+              assetMetadata: params.assetMetadata ?? undefined,
+            },
+          });
+        }
+
+        return this.prisma.aiGenerationJob.create({
+          data: {
+            exhibitionId: params.exhibitionId,
+            dayIndex,
+            prompt: params.prompt,
+            assetMetadata: params.assetMetadata ?? undefined,
+            status: 'PENDING',
+          },
+        });
+      }),
+    );
+
+    await this.queue?.addBulk(
+      jobs.map((job) => ({
+        name: JOB_NAME,
+        data: { jobId: job.id },
+        opts: { removeOnComplete: true, removeOnFail: 100 },
+      })),
+    );
+
+    return jobs;
   }
 
   private getRedisConnection() {

@@ -14,6 +14,12 @@ interface SaveDraftDto {
   assetRefs?: unknown;
 }
 
+interface CreateAssetMetadataDto {
+  assetUrl: string;
+  thumbnailUrl?: string | null;
+  usageMetadata?: unknown;
+}
+
 @Injectable()
 export class CuratorExhibitionDayContentService {
   constructor(private readonly prisma: PrismaService) {}
@@ -233,6 +239,62 @@ export class CuratorExhibitionDayContentService {
         createdAt: content.createdAt,
         updatedAt: content.updatedAt,
       })),
+    };
+  }
+
+  async addAssetMetadata(
+    exhibitionId: string,
+    dayIndex: number,
+    dto: CreateAssetMetadataDto,
+    curator: CuratorContext,
+  ) {
+    if (!dto.assetUrl?.trim()) {
+      throw new BadRequestException('assetUrl is required');
+    }
+
+    const { version } = await this.loadLatestVersion(exhibitionId, curator);
+
+    if (dayIndex > version.totalDays) {
+      throw new BadRequestException('dayIndex exceeds totalDays for exhibition');
+    }
+
+    const dayContent = await this.prisma.exhibitionDayContent.upsert({
+      where: {
+        versionId_dayIndex_status: {
+          versionId: version.id,
+          dayIndex,
+          status: 'DRAFT',
+        },
+      },
+      create: {
+        versionId: version.id,
+        dayIndex,
+        status: 'DRAFT',
+        html: null,
+        css: null,
+        assetRefs: Prisma.DbNull,
+      },
+      update: {},
+    });
+
+    const asset = await this.prisma.exhibitionDayAsset.create({
+      data: {
+        dayContentId: dayContent.id,
+        assetUrl: dto.assetUrl.trim(),
+        thumbnailUrl: dto.thumbnailUrl ?? undefined,
+        usageMetadata: dto.usageMetadata ?? undefined,
+      },
+    });
+
+    return {
+      id: asset.id,
+      dayContentId: dayContent.id,
+      exhibitionId,
+      dayIndex,
+      assetUrl: asset.assetUrl,
+      thumbnailUrl: asset.thumbnailUrl,
+      usageMetadata: asset.usageMetadata,
+      createdAt: asset.createdAt,
     };
   }
 
