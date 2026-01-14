@@ -95,6 +95,36 @@ export class ViewerEntryService {
       sessionId,
     });
 
+    if (exhibition.governanceMaskedAt) {
+      return {
+        publicTagId: params.publicTagId,
+        viewerSessionId: sessionId,
+        decision: {
+          mode: 'DENY',
+          reason: 'MASKED',
+          exhibitionId: exhibition.id,
+          runId: null,
+        },
+      };
+    }
+
+    if (
+      nfcTag.curator?.policy?.nfcScopePolicy === 'EXHIBITION_ONLY' &&
+      nfcTag.curatorId &&
+      exhibition.curatorId !== nfcTag.curatorId
+    ) {
+      return {
+        publicTagId: params.publicTagId,
+        viewerSessionId: sessionId,
+        decision: {
+          mode: 'DENY',
+          reason: 'GOVERNANCE_LOCKED',
+          exhibitionId: exhibition.id,
+          runId: null,
+        },
+      };
+    }
+
     if (!policy.allowed) {
       return {
         publicTagId: params.publicTagId,
@@ -219,6 +249,20 @@ export class ViewerEntryService {
       viewerId: params.viewerId ?? null,
       sessionId,
     });
+
+    if (exhibition.governanceMaskedAt) {
+      throw new NotFoundException('Exhibition is not available');
+    }
+
+    if (
+      nfcTag.curator?.policy?.nfcScopePolicy === 'EXHIBITION_ONLY' &&
+      nfcTag.curatorId &&
+      exhibition.curatorId !== nfcTag.curatorId
+    ) {
+      throw new NotFoundException(
+        `Exhibition ${exhibition.id} is not available for this curator policy`,
+      );
+    }
 
     if (!policy.allowed && policy.reason === 'GOVERNANCE_LOCKED') {
       throw new NotFoundException(

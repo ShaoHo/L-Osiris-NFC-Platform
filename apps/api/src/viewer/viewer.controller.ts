@@ -181,9 +181,21 @@ export class ViewerController {
       sessionId,
     });
 
+    if (exhibition.governanceMaskedAt) {
+      throw new NotFoundException('Exhibition is not available');
+    }
+
     if (!policy.allowed) {
       if (policy.reason === 'GRANT_REQUIRED') {
         throw new BadRequestException('Access grant required to activate exhibition');
+      }
+      if (policy.reason === 'GOVERNANCE_LOCKED') {
+        throw new NotFoundException(
+          'Exhibition access is restricted by curator policy',
+        );
+      }
+      if (policy.reason === 'MASKED') {
+        throw new NotFoundException('Exhibition is not available');
       }
       throw new BadRequestException('Exhibition access is restricted by policy');
     }
