@@ -3,12 +3,14 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { AccessGrantService } from '../access/access-grant.service';
 import { AdminActionPayload } from './admin-action.types';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class AdminActionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly accessGrantService: AccessGrantService,
+    private readonly auditService: AuditService,
   ) {}
 
   async executeAction(actionId: string, executedBy: string) {
@@ -53,13 +55,11 @@ export class AdminActionService {
       },
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        eventType: 'ADMIN_ACTION_EXECUTED',
-        actor: executedBy,
-        adminActionId: action.id,
-        payload: payload as unknown as Prisma.InputJsonValue,
-      },
+    await this.auditService.record({
+      eventType: 'ADMIN_ACTION_EXECUTED',
+      actor: executedBy,
+      adminActionId: action.id,
+      payload: payload as unknown as Prisma.InputJsonValue,
     });
 
     return {
@@ -89,21 +89,19 @@ export class AdminActionService {
         expiresAt,
       });
 
-      await this.prisma.auditLog.create({
-        data: {
-          eventType: 'ACCESS_GRANT_ISSUED',
-          actor,
-          adminActionId: action.id,
-          entityType: 'AccessGrant',
-          entityId: grant.id,
-          payload: {
-            viewerId: grant.viewerId,
-            exhibitionId: grant.exhibitionId,
-            versionId: grant.versionId,
-            expiresAt: grant.expiresAt,
-            revokedAt: grant.revokedAt,
-            createdAt: grant.createdAt,
-          },
+      await this.auditService.record({
+        eventType: 'ACCESS_GRANT_ISSUED',
+        actor,
+        adminActionId: action.id,
+        entityType: 'AccessGrant',
+        entityId: grant.id,
+        payload: {
+          viewerId: grant.viewerId,
+          exhibitionId: grant.exhibitionId,
+          versionId: grant.versionId,
+          expiresAt: grant.expiresAt,
+          revokedAt: grant.revokedAt,
+          createdAt: grant.createdAt,
         },
       });
 
@@ -123,21 +121,19 @@ export class AdminActionService {
         payload.data.grantId,
       );
 
-      await this.prisma.auditLog.create({
-        data: {
-          eventType: 'ACCESS_GRANT_REVOKED',
-          actor,
-          adminActionId: action.id,
-          entityType: 'AccessGrant',
-          entityId: grant.id,
-          payload: {
-            viewerId: grant.viewerId,
-            exhibitionId: grant.exhibitionId,
-            versionId: grant.versionId,
-            expiresAt: grant.expiresAt,
-            revokedAt: grant.revokedAt,
-            createdAt: grant.createdAt,
-          },
+      await this.auditService.record({
+        eventType: 'ACCESS_GRANT_REVOKED',
+        actor,
+        adminActionId: action.id,
+        entityType: 'AccessGrant',
+        entityId: grant.id,
+        payload: {
+          viewerId: grant.viewerId,
+          exhibitionId: grant.exhibitionId,
+          versionId: grant.versionId,
+          expiresAt: grant.expiresAt,
+          revokedAt: grant.revokedAt,
+          createdAt: grant.createdAt,
         },
       });
 
@@ -174,19 +170,17 @@ export class AdminActionService {
         },
       });
 
-      await this.prisma.auditLog.create({
-        data: {
-          eventType: 'CURATOR_POLICY_UPDATED',
-          actor,
-          adminActionId: action.id,
-          entityType: 'CuratorPolicy',
-          entityId: policy.id,
-          payload: {
-            curatorId: policy.curatorId,
-            nfcScopePolicy: policy.nfcScopePolicy,
-            createdAt: policy.createdAt,
-            updatedAt: policy.updatedAt,
-          },
+      await this.auditService.record({
+        eventType: 'CURATOR_POLICY_UPDATED',
+        actor,
+        adminActionId: action.id,
+        entityType: 'CuratorPolicy',
+        entityId: policy.id,
+        payload: {
+          curatorId: policy.curatorId,
+          nfcScopePolicy: policy.nfcScopePolicy,
+          createdAt: policy.createdAt,
+          updatedAt: policy.updatedAt,
         },
       });
 
@@ -218,17 +212,15 @@ export class AdminActionService {
         },
       });
 
-      await this.prisma.auditLog.create({
-        data: {
-          eventType: 'EXHIBITION_FORCE_UNPUBLISHED',
-          actor,
-          adminActionId: action.id,
-          entityType: 'Exhibition',
-          entityId: updated.id,
-          payload: {
-            visibility: updated.visibility,
-            status: updated.status,
-          },
+      await this.auditService.record({
+        eventType: 'EXHIBITION_FORCE_UNPUBLISHED',
+        actor,
+        adminActionId: action.id,
+        entityType: 'Exhibition',
+        entityId: updated.id,
+        payload: {
+          visibility: updated.visibility,
+          status: updated.status,
         },
       });
 
@@ -259,18 +251,16 @@ export class AdminActionService {
         },
       });
 
-      await this.prisma.auditLog.create({
-        data: {
-          eventType: 'CURATOR_SUSPENDED',
-          actor,
-          adminActionId: action.id,
-          entityType: 'Curator',
-          entityId: updated.id,
-          payload: {
-            suspendedAt: updated.suspendedAt,
-            suspendedReason: updated.suspendedReason,
-            tier: updated.tier,
-          },
+      await this.auditService.record({
+        eventType: 'CURATOR_SUSPENDED',
+        actor,
+        adminActionId: action.id,
+        entityType: 'Curator',
+        entityId: updated.id,
+        payload: {
+          suspendedAt: updated.suspendedAt,
+          suspendedReason: updated.suspendedReason,
+          tier: updated.tier,
         },
       });
 
@@ -301,17 +291,15 @@ export class AdminActionService {
         },
       });
 
-      await this.prisma.auditLog.create({
-        data: {
-          eventType: 'CURATOR_UNSUSPENDED',
-          actor,
-          adminActionId: action.id,
-          entityType: 'Curator',
-          entityId: updated.id,
-          payload: {
-            suspendedAt: updated.suspendedAt,
-            suspendedReason: updated.suspendedReason,
-          },
+      await this.auditService.record({
+        eventType: 'CURATOR_UNSUSPENDED',
+        actor,
+        adminActionId: action.id,
+        entityType: 'Curator',
+        entityId: updated.id,
+        payload: {
+          suspendedAt: updated.suspendedAt,
+          suspendedReason: updated.suspendedReason,
         },
       });
 
@@ -341,17 +329,15 @@ export class AdminActionService {
         },
       });
 
-      await this.prisma.auditLog.create({
-        data: {
-          eventType: 'EXHIBITION_GOVERNANCE_ENABLED',
-          actor,
-          adminActionId: action.id,
-          entityType: 'Exhibition',
-          entityId: updated.id,
-          payload: {
-            governanceMaskedAt: updated.governanceMaskedAt,
-            governanceMaskReason: updated.governanceMaskReason,
-          },
+      await this.auditService.record({
+        eventType: 'EXHIBITION_GOVERNANCE_ENABLED',
+        actor,
+        adminActionId: action.id,
+        entityType: 'Exhibition',
+        entityId: updated.id,
+        payload: {
+          governanceMaskedAt: updated.governanceMaskedAt,
+          governanceMaskReason: updated.governanceMaskReason,
         },
       });
 
@@ -390,18 +376,16 @@ export class AdminActionService {
         },
       });
 
-      await this.prisma.auditLog.create({
-        data: {
-          eventType: 'EXHIBITION_OWNERSHIP_TRANSFERRED',
-          actor,
-          adminActionId: action.id,
-          entityType: 'Exhibition',
-          entityId: updated.id,
-          payload: {
-            fromCuratorId: exhibition.curatorId ?? null,
-            toCuratorId: updated.curatorId,
-            reason: payload.data.reason ?? null,
-          },
+      await this.auditService.record({
+        eventType: 'EXHIBITION_OWNERSHIP_TRANSFERRED',
+        actor,
+        adminActionId: action.id,
+        entityType: 'Exhibition',
+        entityId: updated.id,
+        payload: {
+          fromCuratorId: exhibition.curatorId ?? null,
+          toCuratorId: updated.curatorId,
+          reason: payload.data.reason ?? null,
         },
       });
 

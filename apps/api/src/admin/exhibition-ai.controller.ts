@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
@@ -14,6 +15,8 @@ import { PrismaService } from '../database/prisma.service';
 import { AdminAccessGuard } from './admin-access.guard';
 import { AiGenerationService } from '../jobs/ai-generation.service';
 import { $Enums } from '@prisma/client';
+import { Request } from 'express';
+import { AuditService } from '../audit/audit.service';
 
 interface GenerateDraftsDto {
   prompt: string;
@@ -29,6 +32,7 @@ export class ExhibitionAiController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiGeneration: AiGenerationService,
+    private readonly auditService: AuditService,
   ) {}
 
   @Post('generate')
@@ -36,6 +40,7 @@ export class ExhibitionAiController {
   async generateDrafts(
     @Param('exhibitionId') exhibitionId: string,
     @Body() dto: GenerateDraftsDto,
+    @Req() request: Request,
   ) {
     if (!dto.prompt?.trim()) {
       throw new BadRequestException('prompt is required');
@@ -72,6 +77,19 @@ export class ExhibitionAiController {
       prompt: dto.prompt.trim(),
       assetMetadata: dto.assetMetadata,
       retryFailed: dto.retryFailed,
+    });
+
+    const actor = (request as any).adminUserEmail as string | undefined;
+    await this.auditService.record({
+      eventType: 'EXHIBITION_AI_DRAFTS_REQUESTED',
+      actor,
+      entityType: 'Exhibition',
+      entityId: exhibitionId,
+      payload: {
+        dayIndices,
+        prompt: dto.prompt.trim(),
+        retryFailed: dto.retryFailed ?? false,
+      },
     });
 
     const jobs: Array<{ jobId: string; dayIndex: number; status: $Enums.AiGenerationJobStatus }> =

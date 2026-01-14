@@ -13,6 +13,7 @@ import { PrismaService } from '../database/prisma.service';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { AdminAccessGuard } from './admin-access.guard';
 import { buildSoftDeleteData } from '../utils/soft-delete';
+import { AuditService } from '../audit/audit.service';
 
 interface AdminRequestDto {
   requestedBy: string;
@@ -35,7 +36,10 @@ interface EnableGovernancePolicyDto extends AdminRequestDto {
 @Controller('admin')
 @UseGuards(AdminAuthGuard, AdminAccessGuard)
 export class ExhibitionAdminController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   @Post('exhibitions/:exhibitionId/force-unpublish')
   @HttpCode(HttpStatus.OK)
@@ -70,13 +74,11 @@ export class ExhibitionAdminController {
       },
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        eventType: 'ADMIN_ACTION_REQUESTED',
-        actor: dto.requestedBy,
-        adminActionId: action.id,
-        payload,
-      },
+    await this.auditService.record({
+      eventType: 'ADMIN_ACTION_REQUESTED',
+      actor: dto.requestedBy,
+      adminActionId: action.id,
+      payload,
     });
 
     return {
@@ -120,13 +122,11 @@ export class ExhibitionAdminController {
       },
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        eventType: 'ADMIN_ACTION_REQUESTED',
-        actor: dto.requestedBy,
-        adminActionId: action.id,
-        payload,
-      },
+    await this.auditService.record({
+      eventType: 'ADMIN_ACTION_REQUESTED',
+      actor: dto.requestedBy,
+      adminActionId: action.id,
+      payload,
     });
 
     return {
@@ -170,13 +170,11 @@ export class ExhibitionAdminController {
       },
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        eventType: 'ADMIN_ACTION_REQUESTED',
-        actor: dto.requestedBy,
-        adminActionId: action.id,
-        payload,
-      },
+    await this.auditService.record({
+      eventType: 'ADMIN_ACTION_REQUESTED',
+      actor: dto.requestedBy,
+      adminActionId: action.id,
+      payload,
     });
 
     return {
@@ -217,16 +215,14 @@ export class ExhibitionAdminController {
       },
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        eventType: 'EXHIBITION_SOFT_DELETED',
-        actor: dto.requestedBy,
-        entityType: 'Exhibition',
-        entityId: updated.id,
-        payload: {
-          deletedAt: updated.deletedAt,
-          purgeAfter: updated.purgeAfter,
-        },
+    await this.auditService.record({
+      eventType: 'EXHIBITION_SOFT_DELETED',
+      actor: dto.requestedBy,
+      entityType: 'Exhibition',
+      entityId: updated.id,
+      payload: {
+        deletedAt: updated.deletedAt,
+        purgeAfter: updated.purgeAfter,
       },
     });
 
@@ -263,13 +259,11 @@ export class ExhibitionAdminController {
       },
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        eventType: 'EXHIBITION_RESTORED',
-        actor: dto.requestedBy,
-        entityType: 'Exhibition',
-        entityId: updated.id,
-      },
+    await this.auditService.record({
+      eventType: 'EXHIBITION_RESTORED',
+      actor: dto.requestedBy,
+      entityType: 'Exhibition',
+      entityId: updated.id,
     });
 
     return {
@@ -305,13 +299,11 @@ export class ExhibitionAdminController {
       where: { id: exhibitionId },
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        eventType: 'EXHIBITION_PURGED',
-        actor: dto.requestedBy,
-        entityType: 'Exhibition',
-        entityId: exhibitionId,
-      },
+    await this.auditService.record({
+      eventType: 'EXHIBITION_PURGED',
+      actor: dto.requestedBy,
+      entityType: 'Exhibition',
+      entityId: exhibitionId,
     });
 
     return { id: exhibitionId, purged: true };

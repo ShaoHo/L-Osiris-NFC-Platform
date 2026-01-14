@@ -10,15 +10,19 @@ describe('ExhibitionAdminController', () => {
     adminAction: {
       create: jest.fn(),
     },
-    auditLog: {
-      create: jest.fn(),
-    },
     curator: {
       findUnique: jest.fn(),
     },
   };
 
-  const controller = new ExhibitionAdminController(prisma as any);
+  const auditService = {
+    record: jest.fn(),
+  };
+
+  const controller = new ExhibitionAdminController(
+    prisma as any,
+    auditService as any,
+  );
 
   beforeEach(() => {
     jest.resetAllMocks();

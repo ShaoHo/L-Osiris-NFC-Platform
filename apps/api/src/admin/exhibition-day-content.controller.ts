@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
@@ -17,6 +18,8 @@ import { AdminAccessGuard } from './admin-access.guard';
 import { AiGenerationService } from '../jobs/ai-generation.service';
 import { sanitizeExhibitionHtml } from '../utils/html-sanitizer';
 import { Prisma } from '@prisma/client';
+import { Request } from 'express';
+import { AuditService } from '../audit/audit.service';
 
 interface CreateDraftDto {
   prompt: string;
@@ -36,6 +39,7 @@ export class ExhibitionDayContentAdminController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiGeneration: AiGenerationService,
+    private readonly auditService: AuditService,
   ) {}
 
   private async loadVersion(exhibitionId: string) {
@@ -65,6 +69,7 @@ export class ExhibitionDayContentAdminController {
     @Param('exhibitionId') exhibitionId: string,
     @Param('dayIndex') dayIndexParam: string,
     @Body() dto: CreateDraftDto,
+    @Req() request: Request,
   ) {
     const dayIndex = Number(dayIndexParam);
     if (!Number.isInteger(dayIndex) || dayIndex < 1) {
@@ -87,6 +92,19 @@ export class ExhibitionDayContentAdminController {
       prompt: dto.prompt.trim(),
       assetMetadata: dto.assetMetadata,
       retryFailed: dto.retryFailed,
+    });
+
+    const actor = (request as any).adminUserEmail as string | undefined;
+    await this.auditService.record({
+      eventType: 'EXHIBITION_AI_DRAFT_REQUESTED',
+      actor,
+      entityType: 'Exhibition',
+      entityId: exhibitionId,
+      payload: {
+        dayIndex,
+        prompt: dto.prompt.trim(),
+        retryFailed: dto.retryFailed ?? false,
+      },
     });
 
     return {
@@ -242,6 +260,7 @@ export class ExhibitionDayContentAdminController {
   async publish(
     @Param('exhibitionId') exhibitionId: string,
     @Param('dayIndex') dayIndexParam: string,
+    @Req() request: Request,
   ) {
     const dayIndex = Number(dayIndexParam);
     if (!Number.isInteger(dayIndex) || dayIndex < 1) {
@@ -339,17 +358,16 @@ export class ExhibitionDayContentAdminController {
       return { published, newVersion };
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        eventType: 'EXHIBITION_DAY_PUBLISHED',
-        actor: 'admin',
-        entityType: 'ExhibitionVersion',
-        entityId: newVersion.id,
-        payload: {
-          exhibitionId,
-          dayIndex: published.dayIndex,
-          publishedAt: published.updatedAt,
-        },
+    const actor = (request as any).adminUserEmail as string | undefined;
+    await this.auditService.record({
+      eventType: 'EXHIBITION_DAY_PUBLISHED',
+      actor,
+      entityType: 'ExhibitionVersion',
+      entityId: newVersion.id,
+      payload: {
+        exhibitionId,
+        dayIndex: published.dayIndex,
+        publishedAt: published.updatedAt,
       },
     });
 

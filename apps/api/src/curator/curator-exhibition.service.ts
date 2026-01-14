@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { CuratorContext } from '../auth/curator.decorator';
+import { AuditService } from '../audit/audit.service';
 
 type ExhibitionType = 'ONE_TO_ONE' | 'ONE_TO_MANY';
 type ExhibitionVisibility = 'DRAFT' | 'PUBLIC';
@@ -26,7 +27,10 @@ interface UpdateExhibitionDto {
 
 @Injectable()
 export class CuratorExhibitionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async create(dto: CreateExhibitionDto, curator: CuratorContext) {
     if (!dto.type) {
@@ -58,6 +62,20 @@ export class CuratorExhibitionService {
         status: 'DRAFT',
         monetizationEnabled: dto.monetizationEnabled ?? false,
         curatorId: curator.curatorId,
+      },
+    });
+
+    await this.auditService.record({
+      eventType: 'EXHIBITION_CREATED',
+      actor: curator.curatorId,
+      entityType: 'Exhibition',
+      entityId: exhibition.id,
+      payload: {
+        type: exhibition.type,
+        totalDays: exhibition.totalDays,
+        visibility: exhibition.visibility,
+        status: exhibition.status,
+        monetizationEnabled: exhibition.monetizationEnabled,
       },
     });
 
@@ -111,6 +129,19 @@ export class CuratorExhibitionService {
         visibility: dto.visibility ?? exhibition.visibility,
         monetizationEnabled:
           dto.monetizationEnabled ?? exhibition.monetizationEnabled,
+      },
+    });
+
+    await this.auditService.record({
+      eventType: 'EXHIBITION_UPDATED',
+      actor: curator.curatorId,
+      entityType: 'Exhibition',
+      entityId: updated.id,
+      payload: {
+        type: updated.type,
+        totalDays: updated.totalDays,
+        visibility: updated.visibility,
+        monetizationEnabled: updated.monetizationEnabled,
       },
     });
 
@@ -199,18 +230,16 @@ export class CuratorExhibitionService {
       return { updated, version };
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        eventType: 'EXHIBITION_PUBLISHED',
-        actor: curator.curatorId,
-        entityType: 'ExhibitionVersion',
-        entityId: version.id,
-        payload: {
-          exhibitionId: updated.id,
-          status: updated.status,
-          visibility: updated.visibility,
-          publishedAt: version.createdAt,
-        },
+    await this.auditService.record({
+      eventType: 'EXHIBITION_PUBLISHED',
+      actor: curator.curatorId,
+      entityType: 'ExhibitionVersion',
+      entityId: version.id,
+      payload: {
+        exhibitionId: updated.id,
+        status: updated.status,
+        visibility: updated.visibility,
+        publishedAt: version.createdAt,
       },
     });
 
@@ -239,16 +268,14 @@ export class CuratorExhibitionService {
       },
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        eventType: 'EXHIBITION_ARCHIVED',
-        actor: curator.curatorId,
-        entityType: 'Exhibition',
-        entityId: updated.id,
-        payload: {
-          status: updated.status,
-          visibility: updated.visibility,
-        },
+    await this.auditService.record({
+      eventType: 'EXHIBITION_ARCHIVED',
+      actor: curator.curatorId,
+      entityType: 'Exhibition',
+      entityId: updated.id,
+      payload: {
+        status: updated.status,
+        visibility: updated.visibility,
       },
     });
 

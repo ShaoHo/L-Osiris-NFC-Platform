@@ -6,9 +6,6 @@ describe('AdminActionController', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
-    auditLog: {
-      create: jest.fn(),
-    },
     curator: {
       findUnique: jest.fn(),
       update: jest.fn(),
@@ -30,10 +27,15 @@ describe('AdminActionController', () => {
     scheduleExecution: jest.fn(),
   };
 
+  const auditService = {
+    record: jest.fn(),
+  };
+
   const controller = new AdminActionController(
     prisma as any,
     adminActionService as any,
     adminActionExecutionService as any,
+    auditService as any,
   );
 
   beforeEach(() => {
