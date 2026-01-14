@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
+import { AdminAccessGuard } from './admin-access.guard';
 
 interface UpdateRevenueShareDto {
   curatorShareBps: number;
@@ -19,7 +20,7 @@ interface UpdateRevenueShareDto {
 }
 
 @Controller('admin/curators/:curatorId/revenue-share')
-@UseGuards(AdminAuthGuard)
+@UseGuards(AdminAuthGuard, AdminAccessGuard)
 export class RevenueShareAdminController {
   constructor(private prisma: PrismaService) {}
 

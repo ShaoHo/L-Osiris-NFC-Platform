@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { PrismaService } from '../database/prisma.service';
+import { AdminAccessGuard } from './admin-access.guard';
 import { AiGenerationService } from '../jobs/ai-generation.service';
 import { sanitizeExhibitionHtml } from '../utils/html-sanitizer';
 import { Prisma } from '@prisma/client';
@@ -30,7 +31,7 @@ interface EditDraftDto {
 }
 
 @Controller('admin/exhibitions/:exhibitionId/days/:dayIndex')
-@UseGuards(AdminAuthGuard)
+@UseGuards(AdminAuthGuard, AdminAccessGuard)
 export class ExhibitionDayContentAdminController {
   constructor(
     private readonly prisma: PrismaService,

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
+import { AdminAccessGuard } from './admin-access.guard';
 import { buildSoftDeleteData } from '../utils/soft-delete';
 
 interface AdminRequestDto {
@@ -32,7 +33,7 @@ interface EnableGovernancePolicyDto extends AdminRequestDto {
 }
 
 @Controller('admin')
-@UseGuards(AdminAuthGuard)
+@UseGuards(AdminAuthGuard, AdminAccessGuard)
 export class ExhibitionAdminController {
   constructor(private readonly prisma: PrismaService) {}
 

@@ -12,6 +12,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
+import { AdminAccessGuard } from './admin-access.guard';
 import { AdminActionPayload } from './admin-action.types';
 import { AdminActionService } from './admin-action.service';
 import { AdminActionExecutionService } from '../jobs/admin-action-execution.service';
@@ -30,7 +31,7 @@ interface CancelAdminActionDto {
 }
 
 @Controller('admin/actions')
-@UseGuards(AdminAuthGuard)
+@UseGuards(AdminAuthGuard, AdminAccessGuard)
 export class AdminActionController {
   constructor(
     private prisma: PrismaService,

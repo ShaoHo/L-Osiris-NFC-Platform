@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { PrismaService } from '../database/prisma.service';
+import { AdminAccessGuard } from './admin-access.guard';
 import { AiGenerationService } from '../jobs/ai-generation.service';
 import { $Enums } from '@prisma/client';
 
@@ -23,7 +24,7 @@ interface GenerateDraftsDto {
 }
 
 @Controller('admin/exhibitions/:exhibitionId/ai')
-@UseGuards(AdminAuthGuard)
+@UseGuards(AdminAuthGuard, AdminAccessGuard)
 export class ExhibitionAiController {
   constructor(
     private readonly prisma: PrismaService,
