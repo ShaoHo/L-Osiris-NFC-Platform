@@ -149,4 +149,86 @@ describe('ViewerEntryService', () => {
       },
     });
   });
+
+  it('denies access when exhibition is governance masked during resolve', async () => {
+    prisma.nfcTag.findUnique.mockResolvedValue({
+      id: 'tag-2',
+      publicTagId: 'tag-2',
+      status: 'ACTIVE',
+      curatorId: 'cur-1',
+      boundExhibition: {
+        id: 'ex-2',
+        type: 'ONE_TO_ONE',
+        totalDays: 3,
+        status: 'ACTIVE',
+        visibility: 'PUBLIC',
+        governanceMaskedAt: new Date(),
+      },
+      curator: { policy: null },
+    });
+    prisma.viewerSession.create.mockResolvedValue({ id: 'session-2' });
+    accessPolicy.canAccessExhibition.mockResolvedValue({
+      allowed: true,
+      reason: 'ALLOWED',
+    });
+
+    await expect(
+      service.resolveEntry({
+        publicTagId: 'tag-2',
+        sessionId: undefined,
+        viewerId: undefined,
+      }),
+    ).rejects.toThrow('Exhibition is not available');
+
+    expect(accessPolicy.canAccessExhibition).toHaveBeenCalledWith({
+      exhibitionId: 'ex-2',
+      viewerId: null,
+      sessionId: 'session-2',
+    });
+  });
+
+  it('denies access when curator policy locks exhibition during resolve decision', async () => {
+    prisma.nfcTag.findUnique.mockResolvedValue({
+      id: 'tag-3',
+      publicTagId: 'tag-3',
+      status: 'ACTIVE',
+      curatorId: 'cur-1',
+      boundExhibition: {
+        id: 'ex-3',
+        curatorId: 'cur-2',
+        type: 'ONE_TO_ONE',
+        totalDays: 3,
+        status: 'ACTIVE',
+        visibility: 'PUBLIC',
+      },
+      curator: { policy: { nfcScopePolicy: 'EXHIBITION_ONLY' } },
+    });
+    prisma.viewerSession.create.mockResolvedValue({ id: 'session-3' });
+    accessPolicy.canAccessExhibition.mockResolvedValue({
+      allowed: true,
+      reason: 'ALLOWED',
+    });
+
+    const result = await service.resolveDecision({
+      publicTagId: 'tag-3',
+      sessionId: undefined,
+      viewerId: undefined,
+    });
+
+    expect(result).toEqual({
+      publicTagId: 'tag-3',
+      viewerSessionId: 'session-3',
+      decision: {
+        mode: 'DENY',
+        reason: 'GOVERNANCE_LOCKED',
+        exhibitionId: 'ex-3',
+        runId: null,
+      },
+    });
+    expect(accessPolicy.canAccessExhibition).toHaveBeenCalledWith({
+      exhibitionId: 'ex-3',
+      viewerId: null,
+      sessionId: 'session-3',
+    });
+  });
 });

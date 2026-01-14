@@ -112,4 +112,54 @@ describe('ViewerController', () => {
       }),
     );
   });
+
+  it('blocks activation when exhibition is governance masked', async () => {
+    prisma.exhibition.findUnique.mockResolvedValue({
+      id: 'ex-3',
+      type: 'ONE_TO_ONE',
+      totalDays: 2,
+      visibility: 'PUBLIC',
+      status: 'ACTIVE',
+      governanceMaskedAt: new Date(),
+    });
+    accessPolicy.canAccessExhibition.mockResolvedValue({
+      allowed: true,
+      reason: 'ALLOWED',
+    });
+
+    await expect(
+      controller.activate('ex-3', { mode: 'RESTART' }, undefined, 'session-3'),
+    ).rejects.toThrow('Exhibition is not available');
+
+    expect(accessPolicy.canAccessExhibition).toHaveBeenCalledWith({
+      exhibitionId: 'ex-3',
+      viewerId: undefined,
+      sessionId: 'session-3',
+    });
+  });
+
+  it('blocks activation when curator policy locks exhibition', async () => {
+    prisma.exhibition.findUnique.mockResolvedValue({
+      id: 'ex-4',
+      type: 'ONE_TO_ONE',
+      totalDays: 2,
+      visibility: 'PUBLIC',
+      status: 'ACTIVE',
+      governanceMaskedAt: null,
+    });
+    accessPolicy.canAccessExhibition.mockResolvedValue({
+      allowed: false,
+      reason: 'GOVERNANCE_LOCKED',
+    });
+
+    await expect(
+      controller.activate('ex-4', { mode: 'RESTART' }, undefined, 'session-4'),
+    ).rejects.toThrow('Exhibition access is restricted by curator policy');
+
+    expect(accessPolicy.canAccessExhibition).toHaveBeenCalledWith({
+      exhibitionId: 'ex-4',
+      viewerId: undefined,
+      sessionId: 'session-4',
+    });
+  });
 });
