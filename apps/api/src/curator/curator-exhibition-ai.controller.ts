@@ -14,6 +14,7 @@ import { Curator, CuratorContext } from '../auth/curator.decorator';
 import { PrismaService } from '../database/prisma.service';
 import { AiGenerationService } from '../jobs/ai-generation.service';
 import { $Enums } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 
 interface GenerateDraftsDto {
   prompt: string;
@@ -29,6 +30,7 @@ export class CuratorExhibitionAiController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiGeneration: AiGenerationService,
+    private readonly auditService: AuditService,
   ) {}
 
   @Post('generate')
@@ -73,6 +75,18 @@ export class CuratorExhibitionAiController {
       prompt: dto.prompt.trim(),
       assetMetadata: dto.assetMetadata,
       retryFailed: dto.retryFailed,
+    });
+
+    await this.auditService.record({
+      eventType: 'EXHIBITION_AI_DRAFTS_REQUESTED',
+      actor: curator.curatorId,
+      entityType: 'Exhibition',
+      entityId: exhibitionId,
+      payload: {
+        dayIndices,
+        prompt: dto.prompt.trim(),
+        retryFailed: dto.retryFailed ?? false,
+      },
     });
 
     const jobs: Array<{ jobId: string; dayIndex: number; status: $Enums.AiGenerationJobStatus }> =

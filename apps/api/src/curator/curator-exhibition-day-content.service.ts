@@ -7,6 +7,7 @@ import { Prisma, ExhibitionDayContentStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { CuratorContext } from '../auth/curator.decorator';
 import { sanitizeExhibitionHtml } from '../utils/html-sanitizer';
+import { AuditService } from '../audit/audit.service';
 
 interface SaveDraftDto {
   html?: string | null;
@@ -22,7 +23,10 @@ interface CreateAssetMetadataDto {
 
 @Injectable()
 export class CuratorExhibitionDayContentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async saveDraft(
     exhibitionId: string,
@@ -176,17 +180,15 @@ export class CuratorExhibitionDayContentService {
       return { published, newVersion };
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        eventType: 'EXHIBITION_DAY_PUBLISHED',
-        actor: curator.curatorId,
-        entityType: 'ExhibitionVersion',
-        entityId: newVersion.id,
-        payload: {
-          exhibitionId,
-          dayIndex: published.dayIndex,
-          publishedAt: published.updatedAt,
-        },
+    await this.auditService.record({
+      eventType: 'EXHIBITION_DAY_PUBLISHED',
+      actor: curator.curatorId,
+      entityType: 'ExhibitionVersion',
+      entityId: newVersion.id,
+      payload: {
+        exhibitionId,
+        dayIndex: published.dayIndex,
+        publishedAt: published.updatedAt,
       },
     });
 

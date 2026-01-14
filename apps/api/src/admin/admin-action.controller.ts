@@ -16,6 +16,7 @@ import { AdminAccessGuard } from './admin-access.guard';
 import { AdminActionPayload } from './admin-action.types';
 import { AdminActionService } from './admin-action.service';
 import { AdminActionExecutionService } from '../jobs/admin-action-execution.service';
+import { AuditService } from '../audit/audit.service';
 
 interface ConfirmAdminActionDto {
   confirmedBy: string;
@@ -37,6 +38,7 @@ export class AdminActionController {
     private prisma: PrismaService,
     private adminActionService: AdminActionService,
     private adminActionExecutionService: AdminActionExecutionService,
+    private auditService: AuditService,
   ) {}
 
   @Post(':actionId/confirm')
@@ -79,13 +81,11 @@ export class AdminActionController {
         },
       });
 
-      await this.prisma.auditLog.create({
-        data: {
-          eventType: 'ADMIN_ACTION_CONFIRMED',
-          actor: dto.confirmedBy,
-          adminActionId: action.id,
-          payload: payload as unknown as Prisma.InputJsonValue,
-        },
+      await this.auditService.record({
+        eventType: 'ADMIN_ACTION_CONFIRMED',
+        actor: dto.confirmedBy,
+        adminActionId: action.id,
+        payload: payload as unknown as Prisma.InputJsonValue,
       });
 
     }
@@ -156,15 +156,13 @@ export class AdminActionController {
       },
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        eventType: 'ADMIN_ACTION_CANCELLED',
-        actor: dto.cancelledBy,
-        adminActionId: action.id,
-        payload: {
-          ...(payload ?? {}),
-          reason: dto.reason ?? null,
-        },
+    await this.auditService.record({
+      eventType: 'ADMIN_ACTION_CANCELLED',
+      actor: dto.cancelledBy,
+      adminActionId: action.id,
+      payload: {
+        ...(payload ?? {}),
+        reason: dto.reason ?? null,
       },
     });
 

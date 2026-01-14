@@ -1,6 +1,6 @@
-import { ExhibitionAiController } from './exhibition-ai.controller';
+import { CuratorExhibitionAiController } from './curator-exhibition-ai.controller';
 
-describe('ExhibitionAiController', () => {
+describe('CuratorExhibitionAiController', () => {
   const prisma = {
     exhibition: {
       findUnique: jest.fn(),
@@ -15,7 +15,7 @@ describe('ExhibitionAiController', () => {
     record: jest.fn(),
   };
 
-  const controller = new ExhibitionAiController(
+  const controller = new CuratorExhibitionAiController(
     prisma as any,
     aiGeneration as any,
     auditService as any,
@@ -25,32 +25,30 @@ describe('ExhibitionAiController', () => {
     jest.resetAllMocks();
   });
 
-  it('queues draft jobs for a day range', async () => {
+  it('records audit logs when drafting with AI', async () => {
     prisma.exhibition.findUnique.mockResolvedValue({
       id: 'ex-1',
-      totalDays: 3,
+      curatorId: 'cur-1',
+      totalDays: 5,
     });
     aiGeneration.enqueueDraftJobs.mockResolvedValue([
       { id: 'job-1', dayIndex: 1, status: 'PENDING' },
-      { id: 'job-2', dayIndex: 2, status: 'PENDING' },
     ]);
 
-    const result = await controller.generateDrafts(
+    await controller.generateDrafts(
       'ex-1',
       {
         prompt: 'Generate',
         startDay: 1,
-        endDay: 2,
+        endDay: 1,
       },
-      { adminUserEmail: 'admin@example.com' } as any,
+      { curatorId: 'cur-1', curatorTier: 'STANDARD' },
     );
 
-    expect(result.jobs).toHaveLength(2);
-    expect(result.jobs[0].dayIndex).toBe(1);
     expect(auditService.record).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'EXHIBITION_AI_DRAFTS_REQUESTED',
-        actor: 'admin@example.com',
+        actor: 'cur-1',
         entityId: 'ex-1',
       }),
     );

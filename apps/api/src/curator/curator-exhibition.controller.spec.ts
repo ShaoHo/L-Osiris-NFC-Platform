@@ -18,7 +18,14 @@ describe('CuratorExhibitionController', () => {
     $transaction: jest.fn(),
   };
 
-  const service = new CuratorExhibitionService(prisma as any);
+  const auditService = {
+    record: jest.fn(),
+  };
+
+  const service = new CuratorExhibitionService(
+    prisma as any,
+    auditService as any,
+  );
   const controller = new CuratorExhibitionController(service);
 
   beforeEach(() => {

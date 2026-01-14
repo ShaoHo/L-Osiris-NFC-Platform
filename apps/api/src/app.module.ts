@@ -40,6 +40,7 @@ import { InternalAdminController } from './internal/internal-admin.controller';
 import { InternalAdminGuard } from './auth/internal-admin.guard';
 import { AdminAccessGuard } from './admin/admin-access.guard';
 import { AdminSessionController } from './admin/admin-session.controller';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { AdminSessionController } from './admin/admin-session.controller';
     SoftDeletePurgeModule,
     AiGenerationModule,
     MarketingOutboxModule,
+    AuditModule,
   ],
   controllers: [
     AppController,

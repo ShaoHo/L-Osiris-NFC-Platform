@@ -12,9 +12,6 @@ describe('Admin action workflow', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
-    auditLog: {
-      create: jest.fn(),
-    },
     exhibition: {
       findUnique: jest.fn(),
       update: jest.fn(),
@@ -33,9 +30,14 @@ describe('Admin action workflow', () => {
     revokeGrant: jest.fn(),
   };
 
+  const auditService = {
+    record: jest.fn(),
+  };
+
   const adminActionService = new AdminActionService(
     prisma as any,
     accessGrantService as any,
+    auditService as any,
   );
 
   const adminActionExecutionService = {
@@ -46,9 +48,13 @@ describe('Admin action workflow', () => {
     prisma as any,
     adminActionService as any,
     adminActionExecutionService as any,
+    auditService as any,
   );
 
-  const exhibitionAdminController = new ExhibitionAdminController(prisma as any);
+  const exhibitionAdminController = new ExhibitionAdminController(
+    prisma as any,
+    auditService as any,
+  );
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -122,8 +128,8 @@ describe('Admin action workflow', () => {
       executeAfter,
     );
 
-    const eventTypes = prisma.auditLog.create.mock.calls.map(
-      ([call]) => call.data.eventType,
+    const eventTypes = auditService.record.mock.calls.map(
+      ([call]) => call.eventType,
     );
     expect(eventTypes).toEqual(
       expect.arrayContaining([
@@ -205,8 +211,8 @@ describe('Admin action workflow', () => {
       executeAfter,
     );
 
-    const eventTypes = prisma.auditLog.create.mock.calls.map(
-      ([call]) => call.data.eventType,
+    const eventTypes = auditService.record.mock.calls.map(
+      ([call]) => call.eventType,
     );
     expect(eventTypes).toEqual(
       expect.arrayContaining([
@@ -287,8 +293,8 @@ describe('Admin action workflow', () => {
       executeAfter,
     );
 
-    const eventTypes = prisma.auditLog.create.mock.calls.map(
-      ([call]) => call.data.eventType,
+    const eventTypes = auditService.record.mock.calls.map(
+      ([call]) => call.eventType,
     );
     expect(eventTypes).toEqual(
       expect.arrayContaining([
