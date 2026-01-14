@@ -38,19 +38,8 @@ All endpoints are under `/internal/admin` and create `AdminAction` rows plus `Au
   - Body: `{ "requestedBy": "email@domain", "toCuratorId": "curator_id", "reason": "..." }`
   - Admin action: `TRANSFER_EXHIBITION_OWNERSHIP`
 
-## Minimal CLI stub
+## Admin UI
 
-`apps/curator-admin-internal` contains a minimal CLI for calling the internal endpoints. It is intentionally small and is meant for ops-only use.
-
-Example usage:
-
-```bash
-node apps/curator-admin-internal/src/index.js suspend-curator --curatorId cur-123 --requestedBy ops@example.com --otp 123456
-node apps/curator-admin-internal/src/index.js unsuspend-curator --curatorId cur-123 --requestedBy ops@example.com --otp 123456
-node apps/curator-admin-internal/src/index.js transfer-exhibition --exhibitionId exh-456 --toCuratorId cur-789 --requestedBy ops@example.com --otp 123456
-```
-
-Environment variables used by the CLI:
-
-- `INTERNAL_ADMIN_API_URL` (default: `http://localhost:3000`)
-- `INTERNAL_ADMIN_OTP` (optional; can be supplied via `--otp` instead)
+The internal admin UI is now provided by the Next.js app in `apps/curator-admin-internal`.
+It authenticates against the main admin API (not these internal endpoints), so keep the
+internal-only routes gated behind `InternalAdminGuard` for ops workflows.

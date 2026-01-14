@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
+import { AdminAccessGuard } from './admin-access.guard';
 
 interface IssueAccessGrantDto {
   viewerId: string;
@@ -25,7 +26,7 @@ interface RevokeAccessGrantDto {
 }
 
 @Controller('admin/access-grants')
-@UseGuards(AdminAuthGuard)
+@UseGuards(AdminAuthGuard, AdminAccessGuard)
 export class AccessGrantAdminController {
   constructor(
     private prisma: PrismaService,

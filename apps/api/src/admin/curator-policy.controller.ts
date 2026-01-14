@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { PrismaService } from '../database/prisma.service';
+import { AdminAccessGuard } from './admin-access.guard';
 
 interface UpdateCuratorPolicyDto {
   nfcScopePolicy: 'EXHIBITION_ONLY' | 'EXHIBITION_AND_GALLERY';
@@ -18,7 +19,7 @@ interface UpdateCuratorPolicyDto {
 }
 
 @Controller('admin/curators/:curatorId/policy')
-@UseGuards(AdminAuthGuard)
+@UseGuards(AdminAuthGuard, AdminAccessGuard)
 export class CuratorPolicyAdminController {
   constructor(private prisma: PrismaService) {}
 

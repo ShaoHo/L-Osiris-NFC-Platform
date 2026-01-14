@@ -2,15 +2,19 @@
   "name": "@app/curator-admin-internal",
   "version": "0.1.0",
   "private": true,
-  "description": "Internal Admin/Curator Service",
+  "description": "Internal Admin UI",
   "type": "module",
   "scripts": {
-    "build": "echo 'Build placeholder'",
-    "lint": "echo 'Lint placeholder'",
-    "test": "echo 'Test placeholder'",
-    "dev": "node src/index.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
-  "dependencies": {},
+  "dependencies": {
+    "next": "^14.2.5",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
   "devDependencies": {
     "typescript": "^5.3.3"
   }

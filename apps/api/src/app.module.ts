@@ -38,6 +38,8 @@ import { AdminActionService } from './admin/admin-action.service';
 import { AdminActionExecutionService } from './jobs/admin-action-execution.service';
 import { InternalAdminController } from './internal/internal-admin.controller';
 import { InternalAdminGuard } from './auth/internal-admin.guard';
+import { AdminAccessGuard } from './admin/admin-access.guard';
+import { AdminSessionController } from './admin/admin-session.controller';
 
 @Module({
   imports: [
@@ -61,6 +63,7 @@ import { InternalAdminGuard } from './auth/internal-admin.guard';
     RevenueShareAdminController,
     ExhibitionAdminController,
     ExhibitionAiController,
+    AdminSessionController,
     CuratorAuthController,
     CuratorExhibitionController,
     CuratorExhibitionDayContentController,
@@ -74,6 +77,7 @@ import { InternalAdminGuard } from './auth/internal-admin.guard';
     AccessPolicyService,
     AdminAuthService,
     AdminAuthGuard,
+    AdminAccessGuard,
     CuratorAuthGuard,
     PasswordService,
     CuratorAuthService,
